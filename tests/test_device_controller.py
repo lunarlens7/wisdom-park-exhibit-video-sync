@@ -12,7 +12,7 @@ async def test_set_switch_on(monkeypatch):
     mock_device = AsyncMock()
     monkeypatch.setattr(ctrl, "_get_p100", AsyncMock(return_value=mock_device))
     await ctrl.set_switch("192.168.1.1", True)
-    mock_device.turn_on.assert_awaited_once()
+    mock_device.on.assert_awaited_once()
 
 @pytest.mark.asyncio
 async def test_set_switch_off(monkeypatch):
@@ -20,7 +20,7 @@ async def test_set_switch_off(monkeypatch):
     mock_device = AsyncMock()
     monkeypatch.setattr(ctrl, "_get_p100", AsyncMock(return_value=mock_device))
     await ctrl.set_switch("192.168.1.1", False)
-    mock_device.turn_off.assert_awaited_once()
+    mock_device.off.assert_awaited_once()
 
 @pytest.mark.asyncio
 async def test_set_light_updates_tracked_state(monkeypatch):

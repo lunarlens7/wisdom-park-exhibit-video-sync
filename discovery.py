@@ -1,24 +1,17 @@
-from plugp100.common.credentials import AuthCredential
-from plugp100.discovery.tapo_discovery import TapoDiscovery
+from tapo import ApiClient
 
 
-async def discover_devices(email: str, password: str, timeout: float = 5.0) -> list[dict]:
-    credentials = AuthCredential(email, password)
+async def discover_devices(email: str, password: str, timeout: float = 10.0) -> list[dict]:
+    client = ApiClient(email, password)
     found = []
     try:
-        discovered = await TapoDiscovery.scan(timeout=timeout)
-        for d in discovered:
-            try:
-                device = await d.get_tapo_device(credentials)
-                await device.update()
-                found.append({
-                    "ip": d.ip,
-                    "type": type(device).__name__,
-                    "name": getattr(device, "nickname", "unknown"),
-                })
-                await device.client.close()
-            except Exception:
-                found.append({"ip": d.ip, "type": d.device_type, "name": "unknown"})
+        discovery = await client.discover_devices("255.255.255.255", timeout_s=int(timeout))
+        async for device in discovery:
+            found.append({
+                "ip": device.ip,
+                "model": device.model,
+                "name": device.nickname,
+            })
     except Exception as e:
         print(f"Discovery error: {e}")
     return found
@@ -30,4 +23,4 @@ def print_devices(devices: list[dict]) -> None:
         return
     print(f"Found {len(devices)} device(s):\n")
     for d in devices:
-        print(f"  {d['type']:<12} @ {d['ip']:<18}  (name: \"{d['name']}\")")
+        print(f"  {d['model']:<12} @ {d['ip']:<18}  (name: \"{d['name']}\")")

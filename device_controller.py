@@ -1,12 +1,11 @@
 import asyncio
 from typing import Any
-from plugp100.common.credentials import AuthCredential
-from plugp100.new.device_factory import connect, DeviceConnectConfiguration
+from tapo import ApiClient
 
 
 class DeviceController:
     def __init__(self, email: str, password: str):
-        self._credentials = AuthCredential(email, password)
+        self._client = ApiClient(email, password)
         self._state: dict[str, dict[str, Any]] = {}
 
     def get_state(self, ip: str) -> dict[str, Any]:
@@ -17,25 +16,19 @@ class DeviceController:
             self._state[ip] = {}
         self._state[ip].update(kwargs)
 
-    async def _connect(self, ip: str):
-        config = DeviceConnectConfiguration(host=ip, credentials=self._credentials)
-        device = await connect(config)
-        await device.update()
-        return device
-
     async def _get_l530(self, ip: str):
-        return await self._connect(ip)
+        return await self._client.l530(ip)
 
     async def _get_p100(self, ip: str):
-        return await self._connect(ip)
+        return await self._client.p100(ip)
 
     async def set_switch(self, ip: str, on: bool) -> None:
         try:
             device = await self._get_p100(ip)
             if on:
-                await device.turn_on()
+                await device.on()
             else:
-                await device.turn_off()
+                await device.off()
             self.set_state(ip, on=on)
         except Exception as e:
             print(f"WARNING: Could not reach switch {ip}: {e}")
@@ -52,9 +45,9 @@ class DeviceController:
             device = await self._get_l530(ip)
             if on is not None:
                 if on:
-                    await device.turn_on()
+                    await device.on()
                 else:
-                    await device.turn_off()
+                    await device.off()
             if brightness is not None or hue is not None or saturation is not None:
                 current = self.get_state(ip)
                 b = brightness if brightness is not None else current.get("brightness", 100)
