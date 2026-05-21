@@ -1,0 +1,49 @@
+tapo:
+  email: "you@example.com"
+  password: "yourpassword"
+
+vlc:
+  host: "localhost"
+  port: 8080
+  password: "tapo_sync"
+  poll_interval: 0.2
+
+devices:
+  main_light:
+    type: l530
+    ip: "192.168.1.101"
+    initial_state:
+      on: true
+      brightness: 100
+      hue: 30
+      saturation: 80
+
+  stage_switch:
+    type: p100
+    ip: "192.168.1.102"
+    initial_state:
+      on: false
+
+cues:
+  - at: 10.5
+    device: main_light
+    action: fade
+    to_brightness: 20
+    to_hue: 200
+    to_saturation: 100
+    duration: 5.0
+
+  - at: 30.0
+    device: stage_switch
+    action: on
+
+  - at: 45.0
+    device: main_light
+    action: set_light
+    brightness: 80
+    hue: 120
+    saturation: 60
+
+  - at: 60.0
+    device: stage_switch
+    action: off
