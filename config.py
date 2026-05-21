@@ -2,6 +2,9 @@ from dataclasses import dataclass
 from typing import Any
 import os
 import yaml
+from dotenv import load_dotenv
+
+load_dotenv()
 
 
 class ConfigError(Exception):

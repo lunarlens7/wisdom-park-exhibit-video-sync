@@ -30,14 +30,20 @@ Launch VLC with its HTTP interface enabled:
 
 Or enable it permanently in VLC: `VLC menu → Preferences → Interface → Main interfaces → Web`.
 
-**3. Set Tapo credentials as environment variables**
+**3. Set Tapo credentials**
+
+Copy `.env.example` to `.env` and fill in your Tapo account details:
 
 ```bash
-export TAPO_EMAIL="you@example.com"
-export TAPO_PASSWORD="yourpassword"
+cp .env.example .env
 ```
 
-Add these to your shell profile (`~/.zshrc`) to avoid setting them each session.
+```ini
+TAPO_EMAIL=you@example.com
+TAPO_PASSWORD=yourpassword
+```
+
+The `.env` file is gitignored — credentials are never committed. You can also set `TAPO_EMAIL` and `TAPO_PASSWORD` as regular shell environment variables if you prefer.
 
 **4. Edit `config.yaml`**
 
