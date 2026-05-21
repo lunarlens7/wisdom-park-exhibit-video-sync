@@ -22,7 +22,7 @@ Launch VLC with its HTTP interface enabled:
 
 ```bash
 /Applications/VLC.app/Contents/MacOS/VLC \
-  --intf http \
+  --extraintf http \
   --http-password tapo_sync \
   --http-port 8080 \
   /path/to/your/video.mp4
