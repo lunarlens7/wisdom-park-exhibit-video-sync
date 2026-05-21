@@ -30,9 +30,18 @@ Launch VLC with its HTTP interface enabled:
 
 Or enable it permanently in VLC: `VLC menu → Preferences → Interface → Main interfaces → Web`.
 
-**3. Edit `config.yaml`**
+**3. Set Tapo credentials as environment variables**
 
-Fill in your Tapo account credentials, device IPs, and cue list. See `config.yaml` for the full format.
+```bash
+export TAPO_EMAIL="you@example.com"
+export TAPO_PASSWORD="yourpassword"
+```
+
+Add these to your shell profile (`~/.zshrc`) to avoid setting them each session.
+
+**4. Edit `config.yaml`**
+
+Fill in your device IPs and cue list. See `config.yaml` for the full format.
 
 If you don't know your device IPs, use the discover command (below).
 

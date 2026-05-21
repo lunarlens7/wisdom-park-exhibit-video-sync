@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 from typing import Any
+import os
 import yaml
 
 
@@ -60,14 +61,17 @@ def load_config(path: str) -> AppConfig:
     except FileNotFoundError:
         raise ConfigError(f"Config file not found: {path}")
 
-    for section in ("tapo", "vlc", "devices", "cues"):
+    for section in ("vlc", "devices", "cues"):
         if section not in raw:
             raise ConfigError(f"Missing required section: '{section}'")
 
-    tapo = TapoConfig(
-        email=_require(raw["tapo"], "email", "tapo"),
-        password=_require(raw["tapo"], "password", "tapo"),
-    )
+    email = os.environ.get("TAPO_EMAIL")
+    password = os.environ.get("TAPO_PASSWORD")
+    if not email or not password:
+        raise ConfigError(
+            "Missing Tapo credentials. Set the TAPO_EMAIL and TAPO_PASSWORD environment variables."
+        )
+    tapo = TapoConfig(email=email, password=password)
 
     vlc_raw = raw["vlc"]
     vlc = VlcConfig(

@@ -2,10 +2,6 @@ import pytest
 from config import load_config, ConfigError
 
 VALID_YAML = """
-tapo:
-  email: "test@example.com"
-  password: "secret"
-
 vlc:
   host: "localhost"
   port: 8080
@@ -40,38 +36,49 @@ cues:
     action: on
 """
 
-def test_load_valid_config(tmp_path):
+def test_load_valid_config(tmp_path, monkeypatch):
+    monkeypatch.setenv("TAPO_EMAIL", "test@example.com")
+    monkeypatch.setenv("TAPO_PASSWORD", "secret")
     f = tmp_path / "config.yaml"
     f.write_text(VALID_YAML)
     cfg = load_config(str(f))
     assert cfg.tapo.email == "test@example.com"
+    assert cfg.tapo.password == "secret"
     assert cfg.vlc.poll_interval == 0.2
     assert "main_light" in cfg.devices
     assert cfg.devices["main_light"].type == "l530"
     assert cfg.devices["main_light"].initial_state["brightness"] == 100
     assert len(cfg.cues) == 2
 
-def test_missing_tapo_section(tmp_path):
+def test_missing_env_vars_raises(tmp_path, monkeypatch):
+    monkeypatch.delenv("TAPO_EMAIL", raising=False)
+    monkeypatch.delenv("TAPO_PASSWORD", raising=False)
     f = tmp_path / "config.yaml"
-    f.write_text("vlc:\n  host: localhost\n  port: 8080\n  password: x\n  poll_interval: 0.2\ndevices: {}\ncues: []\n")
-    with pytest.raises(ConfigError, match="tapo"):
+    f.write_text(VALID_YAML)
+    with pytest.raises(ConfigError, match="TAPO_EMAIL"):
         load_config(str(f))
 
-def test_unknown_device_in_cue(tmp_path):
+def test_unknown_device_in_cue(tmp_path, monkeypatch):
+    monkeypatch.setenv("TAPO_EMAIL", "test@example.com")
+    monkeypatch.setenv("TAPO_PASSWORD", "secret")
     bad = VALID_YAML.replace("main_light\n    action: fade", "nonexistent\n    action: fade")
     f = tmp_path / "config.yaml"
     f.write_text(bad)
     with pytest.raises(ConfigError, match="nonexistent"):
         load_config(str(f))
 
-def test_unknown_device_type(tmp_path):
+def test_unknown_device_type(tmp_path, monkeypatch):
+    monkeypatch.setenv("TAPO_EMAIL", "test@example.com")
+    monkeypatch.setenv("TAPO_PASSWORD", "secret")
     bad = VALID_YAML.replace("type: l530", "type: unknown_model")
     f = tmp_path / "config.yaml"
     f.write_text(bad)
     with pytest.raises(ConfigError, match="unknown_model"):
         load_config(str(f))
 
-def test_fade_cue_requires_duration(tmp_path):
+def test_fade_cue_requires_duration(tmp_path, monkeypatch):
+    monkeypatch.setenv("TAPO_EMAIL", "test@example.com")
+    monkeypatch.setenv("TAPO_PASSWORD", "secret")
     bad = VALID_YAML.replace("    duration: 5.0\n", "")
     f = tmp_path / "config.yaml"
     f.write_text(bad)
