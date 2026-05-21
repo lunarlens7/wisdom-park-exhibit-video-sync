@@ -6,7 +6,7 @@
 
 **Architecture:** An asyncio event loop polls VLC's HTTP interface every 200ms and feeds the current time to a cue engine that fires device actions. Fades run as concurrent asyncio tasks so they don't block the sync loop. All configuration lives in a single `config.yaml`.
 
-**Tech Stack:** Python 3.11+, `aiohttp` (VLC polling), `python-tapo` (Tapo device control), `PyYAML` (config), `pytest` + `pytest-asyncio` (tests)
+**Tech Stack:** Python 3.13+, `aiohttp` (VLC polling), `plugp100` (Tapo device control), `PyYAML` (config), `pytest` + `pytest-asyncio` (tests)
 
 ---
 
@@ -18,8 +18,8 @@
 | `config.py` | Load and validate `config.yaml`; define dataclasses for all config types |
 | `vlc_poller.py` | Poll VLC HTTP interface; return current playback position in seconds |
 | `cue_engine.py` | Track cue state, compare playback position, fire actions, handle seek-back |
-| `device_controller.py` | Wrap `python-tapo`; expose `set_light()`, `fade()`, `set_switch()`; run fades as asyncio tasks |
-| `discovery.py` | Scan local network for Tapo devices via `python-tapo` discovery |
+| `device_controller.py` | Wrap `plugp100`; expose `set_light()`, `fade()`, `set_switch()`; run fades as asyncio tasks |
+| `discovery.py` | Scan local network for Tapo devices via `plugp100` discovery |
 | `config.yaml` | User-edited show configuration (not tested, used as fixture in tests) |
 | `requirements.txt` | Pinned dependencies |
 | `README.md` | Setup and usage instructions |
@@ -40,22 +40,22 @@
 - [ ] **Step 1: Create `requirements.txt`**
 
 ```
-aiohttp==3.9.5
-PyYAML==6.0.1
-python-tapo==0.8.0
-pytest==8.2.0
-pytest-asyncio==0.23.6
+aiohttp>=3.9.5
+PyYAML>=6.0.1
+plugp100>=5.1.7
+pytest>=9.0.0
+pytest-asyncio>=1.3.0
 ```
 
 - [ ] **Step 2: Install dependencies**
 
 ```bash
-pip install -r requirements.txt
+pip3 install -r requirements.txt
 ```
 
 Expected: All packages install without error. Verify with:
 ```bash
-pip show python-tapo aiohttp PyYAML pytest pytest-asyncio
+pip3 show plugp100 aiohttp PyYAML pytest pytest-asyncio
 ```
 
 - [ ] **Step 3: Create `config.yaml` with example values**
@@ -477,9 +477,13 @@ git commit -m "feat: VLC HTTP poller"
 - Create: `device_controller.py`
 - Create: `tests/test_device_controller.py`
 
-The device controller wraps `python-tapo`. It maintains a **tracked state** dict per device (brightness, hue, saturation, on) that it updates after every command — this is what the cue engine uses to know the "from" values for fades.
+The device controller wraps `plugp100`. It maintains a **tracked state** dict per device (brightness, hue, saturation, on) that it updates after every command — this is what the cue engine uses to know the "from" values for fades.
 
-> **Note on python-tapo API:** The L530 methods used here (`set_hue_saturation`, `set_brightness`, `on`, `off`) and the P100 methods (`on`, `off`) reflect the `python-tapo==0.8.0` API. If you get `AttributeError` on any device method, run `python3 -c "from tapo import ApiClient; help(ApiClient)"` and cross-reference with the [python-tapo README](https://github.com/mihai-dinculescu/python-tapo) to find the correct method name.
+**`plugp100` API used:**
+- Connect: `DeviceConnectConfiguration(host, credentials)` → `await connect(config)` → `await device.update()`
+- L530 (`TapoBulb`): `device.set_brightness(int)`, `device.set_hue_saturation(int, int)`, `device.turn_on()`, `device.turn_off()`
+- P100 (`TapoPlug`): `device.turn_on()`, `device.turn_off()`
+- Credentials: `AuthCredential(email, password)`
 
 - [ ] **Step 1: Write failing tests**
 
@@ -500,7 +504,7 @@ async def test_set_switch_on(monkeypatch):
     mock_device = AsyncMock()
     monkeypatch.setattr(ctrl, "_get_p100", AsyncMock(return_value=mock_device))
     await ctrl.set_switch("192.168.1.1", True)
-    mock_device.on.assert_awaited_once()
+    mock_device.turn_on.assert_awaited_once()
 
 @pytest.mark.asyncio
 async def test_set_switch_off(monkeypatch):
@@ -508,7 +512,7 @@ async def test_set_switch_off(monkeypatch):
     mock_device = AsyncMock()
     monkeypatch.setattr(ctrl, "_get_p100", AsyncMock(return_value=mock_device))
     await ctrl.set_switch("192.168.1.1", False)
-    mock_device.off.assert_awaited_once()
+    mock_device.turn_off.assert_awaited_once()
 
 @pytest.mark.asyncio
 async def test_set_light_updates_tracked_state(monkeypatch):
@@ -569,13 +573,13 @@ Expected: `ImportError` — `device_controller.py` doesn't exist yet.
 ```python
 import asyncio
 from typing import Any
-from tapo import ApiClient
+from plugp100.common.credentials import AuthCredential
+from plugp100.new.device_factory import connect, DeviceConnectConfiguration
 
 
 class DeviceController:
     def __init__(self, email: str, password: str):
-        self._email = email
-        self._password = password
+        self._credentials = AuthCredential(email, password)
         self._state: dict[str, dict[str, Any]] = {}
 
     def get_state(self, ip: str) -> dict[str, Any]:
@@ -586,21 +590,25 @@ class DeviceController:
             self._state[ip] = {}
         self._state[ip].update(kwargs)
 
+    async def _connect(self, ip: str):
+        config = DeviceConnectConfiguration(host=ip, credentials=self._credentials)
+        device = await connect(config)
+        await device.update()
+        return device
+
     async def _get_l530(self, ip: str):
-        client = ApiClient(self._email, self._password)
-        return await client.l530(ip)
+        return await self._connect(ip)
 
     async def _get_p100(self, ip: str):
-        client = ApiClient(self._email, self._password)
-        return await client.p100(ip)
+        return await self._connect(ip)
 
     async def set_switch(self, ip: str, on: bool) -> None:
         try:
             device = await self._get_p100(ip)
             if on:
-                await device.on()
+                await device.turn_on()
             else:
-                await device.off()
+                await device.turn_off()
             self.set_state(ip, on=on)
         except Exception as e:
             print(f"WARNING: Could not reach switch {ip}: {e}")
@@ -617,9 +625,9 @@ class DeviceController:
             device = await self._get_l530(ip)
             if on is not None:
                 if on:
-                    await device.on()
+                    await device.turn_on()
                 else:
-                    await device.off()
+                    await device.turn_off()
             if brightness is not None or hue is not None or saturation is not None:
                 current = self.get_state(ip)
                 b = brightness if brightness is not None else current.get("brightness", 100)
@@ -839,30 +847,32 @@ git commit -m "feat: cue engine with seek-back handling"
 **Files:**
 - Create: `discovery.py`
 
-Discovery uses `python-tapo`'s discovery API. No unit tests here — discovery requires real network hardware. We'll test it manually.
-
-> **Note:** The `client.discovery()` call reflects the expected `python-tapo==0.8.0` API. If it raises `AttributeError`, check the installed version with `pip show python-tapo` and consult the library docs — the method may be `ApiClient.discovery()` or a standalone `tapo.discovery()` function depending on the version. As a fallback, your router's DHCP table is always a reliable way to find device IPs.
+Discovery uses `plugp100`'s `TapoDiscovery.scan()`. No unit tests here — discovery requires real network hardware. We'll test it manually.
 
 - [ ] **Step 1: Implement `discovery.py`**
 
 ```python
-import asyncio
-from tapo import ApiClient
+from plugp100.common.credentials import AuthCredential
+from plugp100.discovery.tapo_discovery import TapoDiscovery
 
 
 async def discover_devices(email: str, password: str, timeout: float = 5.0) -> list[dict]:
-    client = ApiClient(email, password)
+    credentials = AuthCredential(email, password)
     found = []
     try:
-        devices = await asyncio.wait_for(client.discovery(), timeout=timeout)
-        for device in devices:
-            found.append({
-                "ip": device.ip,
-                "type": device.device_type,
-                "name": getattr(device, "alias", "unknown"),
-            })
-    except asyncio.TimeoutError:
-        pass
+        discovered = await TapoDiscovery.scan(timeout=timeout)
+        for d in discovered:
+            try:
+                device = await d.get_tapo_device(credentials)
+                await device.update()
+                found.append({
+                    "ip": d.ip,
+                    "type": type(device).__name__,
+                    "name": getattr(device, "nickname", "unknown"),
+                })
+                await device.client.close()
+            except Exception:
+                found.append({"ip": d.ip, "type": d.device_type, "name": "unknown"})
     except Exception as e:
         print(f"Discovery error: {e}")
     return found
@@ -874,7 +884,7 @@ def print_devices(devices: list[dict]) -> None:
         return
     print(f"Found {len(devices)} device(s):\n")
     for d in devices:
-        print(f"  {d['type']:<8} @ {d['ip']:<18}  (name: \"{d['name']}\")")
+        print(f"  {d['type']:<12} @ {d['ip']:<18}  (name: \"{d['name']}\")")
 ```
 
 - [ ] **Step 2: Commit**
