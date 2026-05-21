@@ -6,7 +6,10 @@ async def discover_devices(email: str, password: str, timeout: float = 10.0) -> 
     found = []
     try:
         discovery = await client.discover_devices("255.255.255.255", timeout_s=int(timeout))
-        async for device in discovery:
+        async for maybe in discovery:
+            device = maybe.get()
+            if device is None:
+                continue
             found.append({
                 "ip": device.ip,
                 "model": device.model,
