@@ -5,7 +5,7 @@
 
 ## Overview
 
-A Python CLI app that tracks VLC video playback position and triggers Tapo smart device actions (L530 light fades/color changes, P100 switch toggles) at configured timestamps. Intended for a Wisdom Park museum exhibit where lighting must stay in sync with a looping video.
+A Python CLI app that tracks VLC video playback position and triggers Tapo smart device actions (L530 light fades/color changes, P100 switch toggles) at configured timestamps. Intended for a Wisdom Park exhibit where lighting must stay in sync with a looping video.
 
 ---
 
@@ -169,3 +169,16 @@ wisdom-park-exhibit-video-sync/
 - Tapo cloud API (local network only)
 - Multiple simultaneous videos
 - Color temperature control (Kelvin mode) — hue/saturation covers the exhibit's needs
+
+---
+
+## Platform
+
+Target platform is **macOS**. Windows is not supported in the MVP.
+
+**Windows caveats (for future reference):**
+- asyncio requires `asyncio.WindowsSelectorEventLoopPolicy()` at startup
+- Windows Firewall may block VLC's HTTP port (8080) and UDP discovery broadcasts
+- VLC is not on PATH by default (`C:\Program Files\VideoLAN\VLC\` must be added manually)
+- Use `python` instead of `python3` in all commands
+- UDP discovery may broadcast on the wrong adapter when both WiFi and Ethernet are active — may need a config option to specify the network interface
