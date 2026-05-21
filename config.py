@@ -100,7 +100,7 @@ def load_config(path: str) -> AppConfig:
         device_name = c.get("device")
         if device_name not in devices:
             raise ConfigError(f"Cue {i}: references unknown device '{device_name}'")
-        action = c.get("action")
+        action = str(c.get("action", "")).lower()
         if action == "fade" and "duration" not in c:
             raise ConfigError(f"Cue {i} (fade at {c.get('at')}s): 'duration' is required for fade actions")
         cues.append(CueConfig(

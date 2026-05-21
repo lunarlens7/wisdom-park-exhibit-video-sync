@@ -7,7 +7,7 @@ vlc:
 devices:
   main_light:
     type: l530
-    ip: "192.168.1.101"
+    ip: "192.168.0.156"
     initial_state:
       on: true
       brightness: 100
@@ -16,12 +16,12 @@ devices:
 
   stage_switch:
     type: p100
-    ip: "192.168.1.102"
+    ip: "192.168.0.160"
     initial_state:
       on: false
 
 cues:
-  - at: 10.5
+  - at: 5
     device: main_light
     action: fade
     to_brightness: 20
@@ -29,17 +29,17 @@ cues:
     to_saturation: 100
     duration: 5.0
 
-  - at: 30.0
+  - at: 10
     device: stage_switch
-    action: on
+    action: "on"
 
-  - at: 45.0
+  - at: 20
     device: main_light
     action: set_light
     brightness: 80
     hue: 120
     saturation: 60
 
-  - at: 60.0
+  - at: 29
     device: stage_switch
-    action: off
+    action: "off"
