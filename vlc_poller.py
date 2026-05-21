@@ -12,7 +12,7 @@ class VlcPoller:
         try:
             async with aiohttp.ClientSession() as session:
                 async with session.get(self._url, headers=self._headers, timeout=aiohttp.ClientTimeout(total=1.0)) as resp:
-                    data = await resp.json()
+                    data = await resp.json(content_type=None)
                     return float(data["time"])
         except Exception:
             return None
