@@ -84,7 +84,6 @@ class DeviceController:
                 saturation=state.get("saturation"),
                 on=on,
             )
-            self.set_state(ip, **state)
 
     async def fade(
         self,
