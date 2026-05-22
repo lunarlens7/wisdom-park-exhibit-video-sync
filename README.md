@@ -4,7 +4,7 @@ Syncs Tapo L530 smart lights and P100 switches to VLC video playback.
 
 ## Requirements
 
-- macOS
+- macOS or Windows
 - Python 3.11+
 - VLC media player
 
@@ -13,19 +13,33 @@ Syncs Tapo L530 smart lights and P100 switches to VLC video playback.
 **1. Install Python dependencies**
 
 ```bash
-pip3 install -r requirements.txt
+pip install -r requirements.txt
 ```
 
 **2. Configure VLC**
 
-Launch VLC with its HTTP interface enabled:
+Launch VLC with its HTTP interface enabled.
+
+**macOS:**
 
 ```bash
 /Applications/VLC.app/Contents/MacOS/VLC \
   --extraintf http \
+  --loop \
   --http-password tapo_sync \
   --http-port 8080 \
   /path/to/your/video.mp4
+```
+
+**Windows:**
+
+```cmd
+"C:\Program Files\VideoLAN\VLC\vlc.exe" ^
+  --extraintf http ^
+  --loop ^
+  --http-password tapo_sync ^
+  --http-port 8080 ^
+  C:\path\to\your\video.mp4
 ```
 
 Or enable it permanently in VLC: `VLC menu → Preferences → Interface → Main interfaces → Web`.
@@ -55,13 +69,14 @@ If you don't know your device IPs, use the discover command (below).
 
 ```bash
 # Start the sync engine (VLC must be running first)
-python3 main.py run
+python main.py run       # Windows
+python3 main.py run      # macOS
 
 # Find Tapo devices on your local network
-python3 main.py discover
+python main.py discover
 
 # Use a different config file
-python3 main.py run /path/to/other-config.yaml
+python main.py run /path/to/other-config.yaml
 ```
 
 ## Cue types
