@@ -2,11 +2,11 @@ import pytest
 from config import load_config, ConfigError
 
 VALID_YAML = """
-vlc:
-  host: "localhost"
-  port: 8080
-  password: "vlcpass"
-  poll_interval: 0.2
+video:
+  path: "exhibit.mp4"
+  loop: true
+  window_title: "Exhibit"
+  fullscreen: false
 
 devices:
   main_light:
@@ -33,7 +33,7 @@ cues:
     duration: 5.0
   - at: 30.0
     device: stage_switch
-    action: on
+    action: "on"
 """
 
 def test_load_valid_config(tmp_path, monkeypatch):
@@ -44,7 +44,8 @@ def test_load_valid_config(tmp_path, monkeypatch):
     cfg = load_config(str(f))
     assert cfg.tapo.email == "test@example.com"
     assert cfg.tapo.password == "secret"
-    assert cfg.vlc.poll_interval == 0.2
+    assert cfg.video.path == "exhibit.mp4"
+    assert cfg.video.loop is True
     assert "main_light" in cfg.devices
     assert cfg.devices["main_light"].type == "l530"
     assert cfg.devices["main_light"].initial_state["brightness"] == 100

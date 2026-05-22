@@ -1,4 +1,5 @@
-aiohttp>=3.9.5
+ffpyplayer>=4.3.0
+opencv-python>=4.8.0
 PyYAML>=6.0.1
 tapo>=0.9.0
 python-dotenv>=1.0.0

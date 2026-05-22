@@ -1,8 +1,8 @@
-vlc:
-  host: "localhost"
-  port: 8080
-  password: "tapo_sync"
-  poll_interval: 0.2
+video:
+  path: "earth_turning.mp4"
+  loop: true
+  window_title: "Exhibit"
+  fullscreen: false
 
 devices:
   main_light:

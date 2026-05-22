@@ -18,11 +18,11 @@ class TapoConfig:
 
 
 @dataclass
-class VlcConfig:
-    host: str
-    port: int
-    password: str
-    poll_interval: float
+class VideoConfig:
+    path: str
+    loop: bool = True
+    window_title: str = "Exhibit"
+    fullscreen: bool = False
 
 
 @dataclass
@@ -49,7 +49,7 @@ class CueConfig:
 @dataclass
 class AppConfig:
     tapo: TapoConfig
-    vlc: VlcConfig
+    video: VideoConfig
     devices: dict[str, DeviceConfig]
     cues: list[CueConfig]
 
@@ -64,7 +64,7 @@ def load_config(path: str) -> AppConfig:
     except FileNotFoundError:
         raise ConfigError(f"Config file not found: {path}")
 
-    for section in ("vlc", "devices", "cues"):
+    for section in ("video", "devices", "cues"):
         if section not in raw:
             raise ConfigError(f"Missing required section: '{section}'")
 
@@ -76,12 +76,12 @@ def load_config(path: str) -> AppConfig:
         )
     tapo = TapoConfig(email=email, password=password)
 
-    vlc_raw = raw["vlc"]
-    vlc = VlcConfig(
-        host=vlc_raw.get("host", "localhost"),
-        port=vlc_raw.get("port", 8080),
-        password=vlc_raw.get("password", ""),
-        poll_interval=vlc_raw.get("poll_interval", 0.2),
+    video_raw = raw["video"]
+    video = VideoConfig(
+        path=_require(video_raw, "path", "video"),
+        loop=video_raw.get("loop", True),
+        window_title=video_raw.get("window_title", "Exhibit"),
+        fullscreen=video_raw.get("fullscreen", False),
     )
 
     devices: dict[str, DeviceConfig] = {}
@@ -116,7 +116,7 @@ def load_config(path: str) -> AppConfig:
             saturation=c.get("saturation"),
         ))
 
-    return AppConfig(tapo=tapo, vlc=vlc, devices=devices, cues=cues)
+    return AppConfig(tapo=tapo, video=video, devices=devices, cues=cues)
 
 
 def _require(d: dict, key: str, section: str) -> Any:
