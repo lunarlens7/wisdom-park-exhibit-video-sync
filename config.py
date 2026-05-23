@@ -22,6 +22,7 @@ class ScreenConfig:
     path: str
     window_title: str = "Exhibit"
     monitor: int = 0
+    mute: bool = False
 
 
 @dataclass
@@ -92,6 +93,7 @@ def load_config(path: str) -> AppConfig:
             path=_require(s, "path", f"video.screens[{i}]"),
             window_title=s.get("window_title", f"Screen {i + 1}"),
             monitor=s.get("monitor", i),
+            mute=s.get("mute", False),
         )
         for i, s in enumerate(screens_raw)
     ]

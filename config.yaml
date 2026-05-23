@@ -1,15 +1,17 @@
-dry_run: false  # set to true to play videos without triggering any device cues
+dry_run: true  # set to true to play videos without triggering any device cues
 
 video:
   loop: true
-  fullscreen: false
+  fullscreen: true
   screens:
-    - path: "earth_turning.mp4"
+    - path: "sunset_timelapse.mp4"
       window_title: "Screen 1"
-      monitor: 0
-    - path: "earth_turning.mp4"
-      window_title: "Screen 2"
       monitor: 1
+      mute: false
+    - path: "sunset_timelapse.mp4"
+      window_title: "Screen 2"
+      monitor: 2
+      mute: true
 
 devices:
   main_light:

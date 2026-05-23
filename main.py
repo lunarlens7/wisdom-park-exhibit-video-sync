@@ -11,17 +11,6 @@ from discovery import discover_devices, print_devices
 CONFIG_PATH = "config.yaml"
 
 
-def _get_monitor_offset(index: int) -> tuple[int, int]:
-    try:
-        from screeninfo import get_monitors
-        monitors = get_monitors()
-        if index < len(monitors):
-            return monitors[index].x, monitors[index].y
-    except Exception:
-        pass
-    return 0, 0
-
-
 def _frame_to_bgr(img) -> np.ndarray:
     img_bytes = img.to_bytearray()[0]
     w, h = img.get_size()
@@ -32,15 +21,27 @@ def _frame_to_bgr(img) -> np.ndarray:
 
 
 def _open_window(title: str, monitor: int, fullscreen: bool) -> None:
-    x, y = _get_monitor_offset(monitor)
+    try:
+        from screeninfo import get_monitors
+        monitors = get_monitors()
+        mon = monitors[monitor] if monitor < len(monitors) else None
+    except Exception:
+        mon = None
+    x, y = (mon.x, mon.y) if mon else (0, 0)
+    w, h = (mon.width, mon.height) if mon else (1920, 1080)
+
     cv2.namedWindow(title, cv2.WINDOW_NORMAL)
+    # Window must be rendered before moveWindow takes effect
+    cv2.imshow(title, np.zeros((h, w, 3), dtype=np.uint8))
+    cv2.waitKey(1)
     cv2.moveWindow(title, x, y)
     if fullscreen:
+        # Set fullscreen after moving so it goes fullscreen on the correct monitor
         cv2.setWindowProperty(title, cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
 
 
 async def _run_secondary(screen: ScreenConfig, loop: bool, fullscreen: bool) -> None:
-    player = MediaPlayer(screen.path)
+    player = MediaPlayer(screen.path, ff_opts={'an': True} if screen.mute else {})
     _open_window(screen.window_title, screen.monitor, fullscreen)
     while True:
         frame, val = player.get_frame()
@@ -76,7 +77,7 @@ async def run_show(config_path: str) -> None:
             await ctrl.apply_initial_state(device.ip, device.type, device.initial_state)
 
     primary = cfg.video.screens[0]
-    player = MediaPlayer(primary.path)
+    player = MediaPlayer(primary.path, ff_opts={'an': True} if primary.mute else {})
     _open_window(primary.window_title, primary.monitor, cfg.video.fullscreen)
 
     for screen in cfg.video.screens[1:]:
