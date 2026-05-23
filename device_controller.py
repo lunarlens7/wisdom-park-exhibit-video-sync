@@ -7,6 +7,7 @@ class DeviceController:
     def __init__(self, email: str, password: str):
         self._client = ApiClient(email, password)
         self._state: dict[str, dict[str, Any]] = {}
+        self._device_cache: dict[str, Any] = {}
 
     def get_state(self, ip: str) -> dict[str, Any]:
         return self._state.get(ip, {})
@@ -17,10 +18,14 @@ class DeviceController:
         self._state[ip].update(kwargs)
 
     async def _get_l530(self, ip: str):
-        return await self._client.l530(ip)
+        if ip not in self._device_cache:
+            self._device_cache[ip] = await self._client.l530(ip)
+        return self._device_cache[ip]
 
     async def _get_p100(self, ip: str):
-        return await self._client.p100(ip)
+        if ip not in self._device_cache:
+            self._device_cache[ip] = await self._client.p100(ip)
+        return self._device_cache[ip]
 
     async def set_switch(self, ip: str, on: bool) -> None:
         try:
@@ -31,6 +36,7 @@ class DeviceController:
                 await device.off()
             self.set_state(ip, on=on)
         except Exception as e:
+            self._device_cache.pop(ip, None)
             print(f"WARNING: Could not reach switch {ip}: {e}")
 
     async def set_light(
@@ -63,6 +69,7 @@ class DeviceController:
                 **({} if on is None else {"on": on}),
             )
         except Exception as e:
+            self._device_cache.pop(ip, None)
             print(f"WARNING: Could not reach light {ip}: {e}")
 
     async def apply_initial_state(self, ip: str, device_type: str, state: dict[str, Any]) -> None:
