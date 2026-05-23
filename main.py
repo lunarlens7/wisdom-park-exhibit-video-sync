@@ -129,9 +129,15 @@ async def run_show(config_path: str) -> None:
                                     saturation=cue.saturation,
                                 ))
                             elif cue.action == "on":
-                                asyncio.create_task(ctrl.set_switch(ip, True))
+                                if cfg.devices[device_name].type == "p100":
+                                    asyncio.create_task(ctrl.set_switch(ip, True))
+                                else:
+                                    asyncio.create_task(ctrl.set_light(ip, on=True))
                             elif cue.action == "off":
-                                asyncio.create_task(ctrl.set_switch(ip, False))
+                                if cfg.devices[device_name].type == "p100":
+                                    asyncio.create_task(ctrl.set_switch(ip, False))
+                                else:
+                                    asyncio.create_task(ctrl.set_light(ip, on=False))
 
             await asyncio.sleep(0.001)
     finally:

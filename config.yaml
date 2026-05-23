@@ -19,18 +19,18 @@ devices:
     ip: "192.168.2.28"
     initial_state:
       on: true
-      brightness: 10
-      hue: 30
-      saturation: 80
+      brightness: 80
+      hue: 0
+      saturation: 0
 
   secondary_light:
     type: l530
     ip: "192.168.2.30"
     initial_state:
       on: true
-      brightness: 10
-      hue: 30
-      saturation: 80
+      brightness: 80
+      hue: 0
+      saturation: 0
 
   stage_switch:
     type: p100
@@ -39,25 +39,24 @@ devices:
       on: false
 
 cues:
-  - at: 5
+  # lights start at 80% white and dim to near-off over the video
+  - at: 1
     devices: [main_light, secondary_light]
     action: fade
-    to_brightness: 20
-    to_hue: 200
-    to_saturation: 100
-    duration: 5.0
+    to_brightness: 5
+    to_hue: 0
+    to_saturation: 0
+    duration: 22.0
 
-  - at: 10
+  - at: 5
     devices: [stage_switch]
     action: "on"
 
-  - at: 15
+  # lights and switch off at the end
+  - at: 24
     devices: [main_light, secondary_light]
-    action: set_light
-    brightness: 80
-    hue: 120
-    saturation: 60
+    action: "off"
 
-  - at: 20
+  - at: 24
     devices: [stage_switch]
     action: "off"
