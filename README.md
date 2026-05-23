@@ -107,6 +107,13 @@ Press `q` in any video window to quit.
 
 Cue timings are driven by the first screen's video position. Quote `"on"` and `"off"` in the YAML to prevent them being parsed as booleans.
 
+## Running tests
+
+```bash
+python -m pytest tests/ -v      # Windows
+python3 -m pytest tests/ -v     # macOS
+```
+
 ## Moving to a new network
 
 Run `python main.py discover` to find new device IPs, then update `config.yaml`.
