@@ -63,21 +63,24 @@ async def _apply_all_initial_states(ctrl, cfg) -> None:
 
 
 async def _run_secondary(screen: ScreenConfig, loop: bool, fullscreen: bool) -> None:
-    player = MediaPlayer(screen.path, {'out_fmt': 'rgb24', **({'an': True} if screen.mute else {})})
-    _open_window(screen.window_title, screen.monitor, fullscreen)
-    while True:
-        frame, val = player.get_frame()
-        if val == "eof":
-            if loop:
-                player.seek(0, relative=False)
-                await asyncio.sleep(0.1)
-            else:
-                break
-        elif frame is not None:
-            img, _ = frame
-            cv2.imshow(screen.window_title, _frame_to_bgr(img))
-            cv2.waitKey(1)
-        await asyncio.sleep(0.001)
+    try:
+        player = MediaPlayer(screen.path, ff_opts={'an': True} if screen.mute else {})
+        _open_window(screen.window_title, screen.monitor, fullscreen)
+        while True:
+            frame, val = player.get_frame()
+            if val == "eof":
+                if loop:
+                    player.seek(0, relative=False)
+                    await asyncio.sleep(0.1)
+                else:
+                    break
+            elif frame is not None:
+                img, _ = frame
+                cv2.imshow(screen.window_title, _frame_to_bgr(img))
+                cv2.waitKey(1)
+            await asyncio.sleep(0.001)
+    except Exception as e:
+        print(f"ERROR in secondary screen '{screen.window_title}': {e}")
 
 
 async def run_show(config_path: str) -> None:
