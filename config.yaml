@@ -1,8 +1,13 @@
 video:
-  path: "earth_turning.mp4"
   loop: true
-  window_title: "Exhibit"
   fullscreen: false
+  screens:
+    - path: "video1.mp4"
+      window_title: "Screen 1"
+      monitor: 0
+    - path: "video2.mp4"
+      window_title: "Screen 2"
+      monitor: 1
 
 devices:
   main_light:

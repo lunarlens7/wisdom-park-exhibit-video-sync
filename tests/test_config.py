@@ -3,10 +3,15 @@ from config import load_config, ConfigError
 
 VALID_YAML = """
 video:
-  path: "exhibit.mp4"
   loop: true
-  window_title: "Exhibit"
   fullscreen: false
+  screens:
+    - path: "exhibit.mp4"
+      window_title: "Screen 1"
+      monitor: 0
+    - path: "exhibit2.mp4"
+      window_title: "Screen 2"
+      monitor: 1
 
 devices:
   main_light:
@@ -44,7 +49,9 @@ def test_load_valid_config(tmp_path, monkeypatch):
     cfg = load_config(str(f))
     assert cfg.tapo.email == "test@example.com"
     assert cfg.tapo.password == "secret"
-    assert cfg.video.path == "exhibit.mp4"
+    assert len(cfg.video.screens) == 2
+    assert cfg.video.screens[0].path == "exhibit.mp4"
+    assert cfg.video.screens[1].monitor == 1
     assert cfg.video.loop is True
     assert "main_light" in cfg.devices
     assert cfg.devices["main_light"].type == "l530"
@@ -84,4 +91,13 @@ def test_fade_cue_requires_duration(tmp_path, monkeypatch):
     f = tmp_path / "config.yaml"
     f.write_text(bad)
     with pytest.raises(ConfigError, match="duration"):
+        load_config(str(f))
+
+def test_missing_screens_raises(tmp_path, monkeypatch):
+    monkeypatch.setenv("TAPO_EMAIL", "test@example.com")
+    monkeypatch.setenv("TAPO_PASSWORD", "secret")
+    bad = VALID_YAML.replace("  screens:\n    - path: \"exhibit.mp4\"\n      window_title: \"Screen 1\"\n      monitor: 0\n    - path: \"exhibit2.mp4\"\n      window_title: \"Screen 2\"\n      monitor: 1\n", "  screens: []\n")
+    f = tmp_path / "config.yaml"
+    f.write_text(bad)
+    with pytest.raises(ConfigError, match="screens"):
         load_config(str(f))

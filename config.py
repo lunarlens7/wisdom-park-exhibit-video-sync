@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any
 import os
 import yaml
@@ -18,10 +18,16 @@ class TapoConfig:
 
 
 @dataclass
-class VideoConfig:
+class ScreenConfig:
     path: str
-    loop: bool = True
     window_title: str = "Exhibit"
+    monitor: int = 0
+
+
+@dataclass
+class VideoConfig:
+    screens: list[ScreenConfig]
+    loop: bool = True
     fullscreen: bool = False
 
 
@@ -77,10 +83,20 @@ def load_config(path: str) -> AppConfig:
     tapo = TapoConfig(email=email, password=password)
 
     video_raw = raw["video"]
+    screens_raw = video_raw.get("screens") or []
+    if not screens_raw:
+        raise ConfigError("video.screens must contain at least one screen")
+    screens = [
+        ScreenConfig(
+            path=_require(s, "path", f"video.screens[{i}]"),
+            window_title=s.get("window_title", f"Screen {i + 1}"),
+            monitor=s.get("monitor", i),
+        )
+        for i, s in enumerate(screens_raw)
+    ]
     video = VideoConfig(
-        path=_require(video_raw, "path", "video"),
+        screens=screens,
         loop=video_raw.get("loop", True),
-        window_title=video_raw.get("window_title", "Exhibit"),
         fullscreen=video_raw.get("fullscreen", False),
     )
 
