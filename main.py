@@ -50,8 +50,8 @@ async def _init_device(ctrl, name: str, device) -> None:
             ctrl.apply_initial_state(device.ip, device.type, device.initial_state),
             timeout=DEVICE_TIMEOUT,
         )
-    except asyncio.TimeoutError:
-        print(f"  WARNING: {name} timed out during init, continuing")
+    except Exception as e:
+        print(f"  WARNING: {name} failed during init ({type(e).__name__}: {e}), continuing")
 
 
 async def _apply_all_initial_states(ctrl, cfg) -> None:

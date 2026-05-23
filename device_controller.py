@@ -75,6 +75,7 @@ class DeviceController:
     async def apply_initial_state(self, ip: str, device_type: str, state: dict[str, Any]) -> None:
         on = state.get("on", True)
         if device_type == "p100":
+            print(f"    → switch {ip} {'on' if on else 'off'}")
             await self.set_switch(ip, on)
         elif device_type == "l530":
             await self.set_light(
