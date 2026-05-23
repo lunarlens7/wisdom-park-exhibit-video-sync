@@ -1,11 +1,13 @@
+dry_run: false  # set to true to play videos without triggering any device cues
+
 video:
   loop: true
   fullscreen: false
   screens:
-    - path: "video1.mp4"
+    - path: "earth_turning.mp4"
       window_title: "Screen 1"
       monitor: 0
-    - path: "video2.mp4"
+    - path: "earth_turning.mp4"
       window_title: "Screen 2"
       monitor: 1
 

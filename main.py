@@ -67,10 +67,13 @@ async def run_show(config_path: str) -> None:
     ctrl = DeviceController(cfg.tapo.email, cfg.tapo.password)
     engine = CueEngine(cfg.cues)
 
-    print("Applying initial device states...")
-    for name, device in cfg.devices.items():
-        print(f"  {name} ({device.type}) @ {device.ip}")
-        await ctrl.apply_initial_state(device.ip, device.type, device.initial_state)
+    if cfg.dry_run:
+        print("Dry run mode — skipping device commands.")
+    else:
+        print("Applying initial device states...")
+        for name, device in cfg.devices.items():
+            print(f"  {name} ({device.type}) @ {device.ip}")
+            await ctrl.apply_initial_state(device.ip, device.type, device.initial_state)
 
     primary = cfg.video.screens[0]
     player = MediaPlayer(primary.path)
@@ -99,35 +102,36 @@ async def run_show(config_path: str) -> None:
 
                 fired_cues = engine.tick(pts)
 
-                if engine.did_reset:
-                    print(f"[{pts:.1f}s] Video reset — re-applying initial states")
-                    for name, device in cfg.devices.items():
-                        await ctrl.apply_initial_state(device.ip, device.type, device.initial_state)
+                if not cfg.dry_run:
+                    if engine.did_reset:
+                        print(f"[{pts:.1f}s] Video reset — re-applying initial states")
+                        for name, device in cfg.devices.items():
+                            await ctrl.apply_initial_state(device.ip, device.type, device.initial_state)
 
-                for cue in fired_cues:
-                    device = cfg.devices[cue.device]
-                    ip = device.ip
-                    print(f"[{pts:.1f}s] Firing cue: {cue.device} → {cue.action}")
+                    for cue in fired_cues:
+                        device = cfg.devices[cue.device]
+                        ip = device.ip
+                        print(f"[{pts:.1f}s] Firing cue: {cue.device} → {cue.action}")
 
-                    if cue.action == "fade":
-                        asyncio.create_task(ctrl.fade(
-                            ip,
-                            duration=cue.duration,
-                            to_brightness=cue.to_brightness,
-                            to_hue=cue.to_hue,
-                            to_saturation=cue.to_saturation,
-                        ))
-                    elif cue.action == "set_light":
-                        asyncio.create_task(ctrl.set_light(
-                            ip,
-                            brightness=cue.brightness,
-                            hue=cue.hue,
-                            saturation=cue.saturation,
-                        ))
-                    elif cue.action == "on":
-                        asyncio.create_task(ctrl.set_switch(ip, True))
-                    elif cue.action == "off":
-                        asyncio.create_task(ctrl.set_switch(ip, False))
+                        if cue.action == "fade":
+                            asyncio.create_task(ctrl.fade(
+                                ip,
+                                duration=cue.duration,
+                                to_brightness=cue.to_brightness,
+                                to_hue=cue.to_hue,
+                                to_saturation=cue.to_saturation,
+                            ))
+                        elif cue.action == "set_light":
+                            asyncio.create_task(ctrl.set_light(
+                                ip,
+                                brightness=cue.brightness,
+                                hue=cue.hue,
+                                saturation=cue.saturation,
+                            ))
+                        elif cue.action == "on":
+                            asyncio.create_task(ctrl.set_switch(ip, True))
+                        elif cue.action == "off":
+                            asyncio.create_task(ctrl.set_switch(ip, False))
 
             await asyncio.sleep(0.001)
     finally:

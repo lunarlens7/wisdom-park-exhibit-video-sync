@@ -58,6 +58,7 @@ class AppConfig:
     video: VideoConfig
     devices: dict[str, DeviceConfig]
     cues: list[CueConfig]
+    dry_run: bool = False
 
 
 VALID_DEVICE_TYPES = {"l530", "p100"}
@@ -132,7 +133,7 @@ def load_config(path: str) -> AppConfig:
             saturation=c.get("saturation"),
         ))
 
-    return AppConfig(tapo=tapo, video=video, devices=devices, cues=cues)
+    return AppConfig(tapo=tapo, video=video, devices=devices, cues=cues, dry_run=bool(raw.get("dry_run", False)))
 
 
 def _require(d: dict, key: str, section: str) -> Any:
