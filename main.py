@@ -40,6 +40,28 @@ def _open_window(title: str, monitor: int, fullscreen: bool) -> None:
         cv2.setWindowProperty(title, cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
 
 
+DEVICE_TIMEOUT = 5.0
+
+
+async def _init_device(ctrl, name: str, device) -> None:
+    print(f"  {name} ({device.type}) @ {device.ip}")
+    try:
+        await asyncio.wait_for(
+            ctrl.apply_initial_state(device.ip, device.type, device.initial_state),
+            timeout=DEVICE_TIMEOUT,
+        )
+    except asyncio.TimeoutError:
+        print(f"  WARNING: {name} timed out during init, continuing")
+
+
+async def _apply_all_initial_states(ctrl, cfg) -> None:
+    print("Applying initial device states...")
+    await asyncio.gather(*[
+        _init_device(ctrl, name, device)
+        for name, device in cfg.devices.items()
+    ])
+
+
 async def _run_secondary(screen: ScreenConfig, loop: bool, fullscreen: bool) -> None:
     player = MediaPlayer(screen.path, ff_opts={'an': True} if screen.mute else {})
     _open_window(screen.window_title, screen.monitor, fullscreen)
@@ -71,10 +93,7 @@ async def run_show(config_path: str) -> None:
     if cfg.dry_run:
         print("Dry run mode — skipping device commands.")
     else:
-        print("Applying initial device states...")
-        for name, device in cfg.devices.items():
-            print(f"  {name} ({device.type}) @ {device.ip}")
-            await ctrl.apply_initial_state(device.ip, device.type, device.initial_state)
+        await _apply_all_initial_states(ctrl, cfg)
 
     primary = cfg.video.screens[0]
     player = MediaPlayer(primary.path, ff_opts={'an': True} if primary.mute else {})
@@ -106,8 +125,7 @@ async def run_show(config_path: str) -> None:
                 if not cfg.dry_run:
                     if engine.did_reset:
                         print(f"[{pts:.1f}s] Video reset — re-applying initial states")
-                        for name, device in cfg.devices.items():
-                            await ctrl.apply_initial_state(device.ip, device.type, device.initial_state)
+                        asyncio.create_task(_apply_all_initial_states(ctrl, cfg))
 
                     for cue in fired_cues:
                         print(f"[{pts:.1f}s] Firing cue: {cue.devices} → {cue.action}")
