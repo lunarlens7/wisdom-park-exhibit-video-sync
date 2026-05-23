@@ -63,7 +63,7 @@ async def _apply_all_initial_states(ctrl, cfg) -> None:
 
 
 async def _run_secondary(screen: ScreenConfig, loop: bool, fullscreen: bool) -> None:
-    player = MediaPlayer(screen.path, ff_opts={'an': True} if screen.mute else {})
+    player = MediaPlayer(screen.path, {'out_fmt': 'rgb24', **({'an': True} if screen.mute else {})})
     _open_window(screen.window_title, screen.monitor, fullscreen)
     while True:
         frame, val = player.get_frame()
