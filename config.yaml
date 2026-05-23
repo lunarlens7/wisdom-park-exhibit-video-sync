@@ -1,4 +1,4 @@
-dry_run: true  # set to true to play videos without triggering any device cues
+dry_run: false  # set to true to play videos without triggering any device cues
 
 video:
   loop: true
@@ -16,16 +16,25 @@ video:
 devices:
   main_light:
     type: l530
-    ip: "192.168.0.156"
+    ip: "192.168.2.28"
     initial_state:
       on: true
-      brightness: 100
+      brightness: 10
+      hue: 30
+      saturation: 80
+
+  secondary_light:
+    type: l530
+    ip: "192.168.2.30"
+    initial_state:
+      on: true
+      brightness: 10
       hue: 30
       saturation: 80
 
   stage_switch:
     type: p100
-    ip: "192.168.0.160"
+    ip: "192.168.2.29"
     initial_state:
       on: false
 
@@ -38,17 +47,32 @@ cues:
     to_saturation: 100
     duration: 5.0
 
+  - at: 5
+    device: secondary_light
+    action: fade
+    to_brightness: 20
+    to_hue: 200
+    to_saturation: 100
+    duration: 5.0
+
   - at: 10
     device: stage_switch
     action: "on"
 
-  - at: 20
+  - at: 15
     device: main_light
     action: set_light
     brightness: 80
     hue: 120
     saturation: 60
 
-  - at: 29
+  - at: 15
+    device: secondary_light
+    action: set_light
+    brightness: 80
+    hue: 120
+    saturation: 60
+
+  - at: 20
     device: stage_switch
     action: "off"
