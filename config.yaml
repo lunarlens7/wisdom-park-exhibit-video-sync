@@ -40,15 +40,7 @@ devices:
 
 cues:
   - at: 5
-    device: main_light
-    action: fade
-    to_brightness: 20
-    to_hue: 200
-    to_saturation: 100
-    duration: 5.0
-
-  - at: 5
-    device: secondary_light
+    devices: [main_light, secondary_light]
     action: fade
     to_brightness: 20
     to_hue: 200
@@ -56,23 +48,16 @@ cues:
     duration: 5.0
 
   - at: 10
-    device: stage_switch
+    devices: [stage_switch]
     action: "on"
 
   - at: 15
-    device: main_light
-    action: set_light
-    brightness: 80
-    hue: 120
-    saturation: 60
-
-  - at: 15
-    device: secondary_light
+    devices: [main_light, secondary_light]
     action: set_light
     brightness: 80
     hue: 120
     saturation: 60
 
   - at: 20
-    device: stage_switch
+    devices: [stage_switch]
     action: "off"

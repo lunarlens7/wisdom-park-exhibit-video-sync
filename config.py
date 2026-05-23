@@ -42,7 +42,7 @@ class DeviceConfig:
 @dataclass
 class CueConfig:
     at: float
-    device: str
+    devices: list[str]
     action: str
     duration: float | None = None
     to_brightness: int | None = None
@@ -116,15 +116,20 @@ def load_config(path: str) -> AppConfig:
 
     cues: list[CueConfig] = []
     for i, c in enumerate(raw["cues"] or []):
-        device_name = c.get("device")
-        if device_name not in devices:
-            raise ConfigError(f"Cue {i}: references unknown device '{device_name}'")
+        raw_devices = c.get("devices") or []
+        if isinstance(raw_devices, str):
+            raw_devices = [raw_devices]
+        if not raw_devices:
+            raise ConfigError(f"Cue {i}: 'devices' must be a non-empty list")
+        for d in raw_devices:
+            if d not in devices:
+                raise ConfigError(f"Cue {i}: references unknown device '{d}'")
         action = str(c.get("action", "")).lower()
         if action == "fade" and "duration" not in c:
             raise ConfigError(f"Cue {i} (fade at {c.get('at')}s): 'duration' is required for fade actions")
         cues.append(CueConfig(
             at=float(c["at"]),
-            device=device_name,
+            devices=raw_devices,
             action=action,
             duration=c.get("duration"),
             to_brightness=c.get("to_brightness"),

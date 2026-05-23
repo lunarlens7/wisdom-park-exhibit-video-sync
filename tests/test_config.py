@@ -30,14 +30,14 @@ devices:
 
 cues:
   - at: 10.5
-    device: main_light
+    devices: [main_light]
     action: fade
     to_brightness: 20
     to_hue: 200
     to_saturation: 100
     duration: 5.0
   - at: 30.0
-    device: stage_switch
+    devices: [stage_switch]
     action: "on"
 """
 
@@ -69,7 +69,7 @@ def test_missing_env_vars_raises(tmp_path, monkeypatch):
 def test_unknown_device_in_cue(tmp_path, monkeypatch):
     monkeypatch.setenv("TAPO_EMAIL", "test@example.com")
     monkeypatch.setenv("TAPO_PASSWORD", "secret")
-    bad = VALID_YAML.replace("main_light\n    action: fade", "nonexistent\n    action: fade")
+    bad = VALID_YAML.replace("devices: [main_light]", "devices: [nonexistent]")
     f = tmp_path / "config.yaml"
     f.write_text(bad)
     with pytest.raises(ConfigError, match="nonexistent"):

@@ -110,29 +110,28 @@ async def run_show(config_path: str) -> None:
                             await ctrl.apply_initial_state(device.ip, device.type, device.initial_state)
 
                     for cue in fired_cues:
-                        device = cfg.devices[cue.device]
-                        ip = device.ip
-                        print(f"[{pts:.1f}s] Firing cue: {cue.device} → {cue.action}")
-
-                        if cue.action == "fade":
-                            asyncio.create_task(ctrl.fade(
-                                ip,
-                                duration=cue.duration,
-                                to_brightness=cue.to_brightness,
-                                to_hue=cue.to_hue,
-                                to_saturation=cue.to_saturation,
-                            ))
-                        elif cue.action == "set_light":
-                            asyncio.create_task(ctrl.set_light(
-                                ip,
-                                brightness=cue.brightness,
-                                hue=cue.hue,
-                                saturation=cue.saturation,
-                            ))
-                        elif cue.action == "on":
-                            asyncio.create_task(ctrl.set_switch(ip, True))
-                        elif cue.action == "off":
-                            asyncio.create_task(ctrl.set_switch(ip, False))
+                        print(f"[{pts:.1f}s] Firing cue: {cue.devices} → {cue.action}")
+                        for device_name in cue.devices:
+                            ip = cfg.devices[device_name].ip
+                            if cue.action == "fade":
+                                asyncio.create_task(ctrl.fade(
+                                    ip,
+                                    duration=cue.duration,
+                                    to_brightness=cue.to_brightness,
+                                    to_hue=cue.to_hue,
+                                    to_saturation=cue.to_saturation,
+                                ))
+                            elif cue.action == "set_light":
+                                asyncio.create_task(ctrl.set_light(
+                                    ip,
+                                    brightness=cue.brightness,
+                                    hue=cue.hue,
+                                    saturation=cue.saturation,
+                                ))
+                            elif cue.action == "on":
+                                asyncio.create_task(ctrl.set_switch(ip, True))
+                            elif cue.action == "off":
+                                asyncio.create_task(ctrl.set_switch(ip, False))
 
             await asyncio.sleep(0.001)
     finally:
