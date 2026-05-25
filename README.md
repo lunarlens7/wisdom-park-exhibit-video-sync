@@ -7,6 +7,24 @@ Plays videos on one or more monitors and syncs Tapo L530 lights and P100 switche
 - macOS or Windows
 - Python 3.11+
 
+## Windows: ffpyplayer installation
+
+`ffpyplayer` compiles a C extension on install. This can fail on Windows even after installing the C++ Build Tools. Try these steps in order.
+
+**Option 1 — Use a Developer Command Prompt**
+
+Even with Build Tools installed, a regular PowerShell or Command Prompt window may not have the compiler on its PATH. Use the specialised prompt that ships with Build Tools:
+
+1. Open the **Start menu** and search for **Developer Command Prompt for VS**
+2. `cd` to the project directory
+3. Run `pip install -r requirements.txt`
+
+**Option 2 — Install C++ Build Tools (if not done yet)**
+
+1. Download the installer from https://visualstudio.microsoft.com/visual-cpp-build-tools/
+2. Select **Desktop development with C++** and complete the installation
+3. Restart your terminal, then retry Option 2 above
+
 ## Setup
 
 **1. Install Python dependencies**
