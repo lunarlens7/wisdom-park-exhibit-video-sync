@@ -62,10 +62,11 @@ async def _apply_all_initial_states(ctrl, cfg) -> None:
     ])
 
 
-async def _run_secondary(screen: ScreenConfig, loop: bool, fullscreen: bool) -> None:
+async def _run_secondary(screen: ScreenConfig, loop: bool, fullscreen: bool, seek: float = 0.0) -> None:
     try:
         player = MediaPlayer(screen.path, ff_opts={'an': True} if screen.mute else {})
         _open_window(screen.window_title, screen.monitor, fullscreen)
+        seek_pending = seek > 0
         while True:
             frame, val = player.get_frame()
             if val == "eof":
@@ -75,6 +76,11 @@ async def _run_secondary(screen: ScreenConfig, loop: bool, fullscreen: bool) -> 
                 else:
                     break
             elif frame is not None:
+                if seek_pending:
+                    player.seek(seek, relative=False)
+                    seek_pending = False
+                    await asyncio.sleep(0.1)
+                    continue
                 img, _ = frame
                 cv2.imshow(screen.window_title, _frame_to_bgr(img))
                 cv2.waitKey(1)
@@ -83,7 +89,7 @@ async def _run_secondary(screen: ScreenConfig, loop: bool, fullscreen: bool) -> 
         print(f"ERROR in secondary screen '{screen.window_title}': {e}")
 
 
-async def run_show(config_path: str) -> None:
+async def run_show(config_path: str, seek: float = 0.0) -> None:
     try:
         cfg = load_config(config_path)
     except ConfigError as e:
@@ -103,10 +109,11 @@ async def run_show(config_path: str) -> None:
     _open_window(primary.window_title, primary.monitor, cfg.video.fullscreen)
 
     for screen in cfg.video.screens[1:]:
-        asyncio.create_task(_run_secondary(screen, cfg.video.loop, cfg.video.fullscreen))
+        asyncio.create_task(_run_secondary(screen, cfg.video.loop, cfg.video.fullscreen, seek=seek))
 
     print(f"Playing {len(cfg.video.screens)} screen(s). Press 'q' to quit.")
 
+    seek_pending = seek > 0
     try:
         while True:
             frame, val = player.get_frame()
@@ -118,6 +125,12 @@ async def run_show(config_path: str) -> None:
                 else:
                     break
             elif frame is not None:
+                if seek_pending:
+                    player.seek(seek, relative=False)
+                    print(f"Seeking to {seek:.1f}s...")
+                    seek_pending = False
+                    await asyncio.sleep(0.1)
+                    continue
                 img, pts = frame
                 cv2.imshow(primary.window_title, _frame_to_bgr(img))
                 if cv2.waitKey(1) & 0xFF == ord("q"):
@@ -133,28 +146,32 @@ async def run_show(config_path: str) -> None:
                     for cue in fired_cues:
                         print(f"[{pts:.1f}s] Firing cue: {cue.devices} → {cue.action}")
                         for device_name in cue.devices:
-                            ip = cfg.devices[device_name].ip
+                            device = cfg.devices[device_name]
+                            ip = device.ip
+                            dtype = device.type
                             if cue.action == "fade":
                                 asyncio.create_task(ctrl.fade(
                                     ip,
+                                    device_type=dtype,
                                     duration=cue.duration,
                                     to_brightness=cue.to_brightness,
                                 ))
                             elif cue.action == "set_light":
                                 asyncio.create_task(ctrl.set_light(
                                     ip,
+                                    device_type=dtype,
                                     brightness=cue.brightness,
                                 ))
                             elif cue.action == "on":
-                                if cfg.devices[device_name].type == "p100":
+                                if dtype == "p100":
                                     asyncio.create_task(ctrl.set_switch(ip, True))
                                 else:
-                                    asyncio.create_task(ctrl.set_light(ip, on=True))
+                                    asyncio.create_task(ctrl.set_light(ip, device_type=dtype, on=True))
                             elif cue.action == "off":
-                                if cfg.devices[device_name].type == "p100":
+                                if dtype == "p100":
                                     asyncio.create_task(ctrl.set_switch(ip, False))
                                 else:
-                                    asyncio.create_task(ctrl.set_light(ip, on=False))
+                                    asyncio.create_task(ctrl.set_light(ip, device_type=dtype, on=False))
 
             await asyncio.sleep(0.001)
     finally:
@@ -174,17 +191,27 @@ async def run_discovery(config_path: str) -> None:
 
 
 def main() -> None:
-    if len(sys.argv) < 2 or sys.argv[1] not in ("run", "discover"):
-        print("Usage: python main.py [run|discover]")
+    import argparse
+    parser = argparse.ArgumentParser()
+    subparsers = parser.add_subparsers(dest="command")
+
+    run_parser = subparsers.add_parser("run")
+    run_parser.add_argument("config", nargs="?", default=CONFIG_PATH)
+    run_parser.add_argument("--seek", type=float, default=0.0, metavar="SECONDS",
+                            help="Start playback at this position in seconds")
+
+    discover_parser = subparsers.add_parser("discover")
+    discover_parser.add_argument("config", nargs="?", default=CONFIG_PATH)
+
+    args = parser.parse_args()
+    if args.command is None:
+        parser.print_help()
         sys.exit(1)
 
-    command = sys.argv[1]
-    config_path = sys.argv[2] if len(sys.argv) > 2 else CONFIG_PATH
-
-    if command == "run":
-        asyncio.run(run_show(config_path))
-    elif command == "discover":
-        asyncio.run(run_discovery(config_path))
+    if args.command == "run":
+        asyncio.run(run_show(args.config, seek=args.seek))
+    elif args.command == "discover":
+        asyncio.run(run_discovery(args.config))
 
 
 if __name__ == "__main__":

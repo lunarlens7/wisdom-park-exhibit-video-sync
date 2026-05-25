@@ -4,49 +4,92 @@ video:
   loop: true
   fullscreen: true
   screens:
-    - path: "sunset_timelapse.mp4"
+    - path: "Full_Day_Sequence_B.mp4"
       window_title: "Screen 1"
-      monitor: 1
-      mute: false
-    - path: "moon.webp"
-      window_title: "Screen 2"
-      monitor: 2
+      monitor: 1 #TV
       mute: true
+    - path: "Full_Day_Sequence_A.mp4"
+      window_title: "Screen 2"
+      monitor: 2 #projector
+      mute: false
 
 devices:
   main_light:
     type: l530
+    ip: "192.168.8.105"
+    initial_state:
+      on: true
+      brightness: 1
+
+  overhead_light_2:
+    type: l530
+    ip: "192.168.8.106"
+    initial_state:
+      on: true
+      brightness: 1
+
+  spotlight_1:
+    type: l630
     ip: "192.168.8.103"
     initial_state:
-      on: true
-      brightness: 80
+      on: false
 
-  secondary_light:
-    type: l530
+  spotlight_2:
+    type: l630
     ip: "192.168.8.102"
     initial_state:
-      on: true
-      brightness: 80
+      on: false
+
+  spotlight_3:
+    type: l630
+    ip: "192.168.8.100"
+    initial_state:
+      on: false
 
   stage_switch:
     type: p100
     ip: "192.168.8.101"
     initial_state:
-      on: false
+      on: true
 
 cues:
-  # lights start at 80% white and dim to near-off over the video
+  # 0-15s: overheads fade to full, spotlights fade on to 70%
   - at: 5
-    devices: [main_light, secondary_light]
+    devices: [main_light, overhead_light_2]
     action: fade
-    to_brightness: 1
-    duration: 7
+    duration: 15
+    to_brightness: 100
 
-  - at: 12
+  - at: 5
+    devices: [spotlight_1, spotlight_2, spotlight_3]
+    action: fade
+    duration: 15
+    to_brightness: 70
+
+  # miniature lights switch off at 15s
+  - at: 15
+    devices: [stage_switch]
+    action: "off"
+
+  # 10:10 — fade overheads and spotlights to near-off over 10s
+  - at: 610
+    devices: [main_light, overhead_light_2]
+    action: fade
+    duration: 10
+    to_brightness: 1
+
+  - at: 610
+    devices: [spotlight_1, spotlight_2, spotlight_3]
+    action: fade
+    duration: 8
+    to_brightness: 1
+
+  # 10:15 — miniature lights switch on
+  - at: 615
     devices: [stage_switch]
     action: "on"
 
-  # lights and switch off at the end
-  - at: 20
-    devices: [main_light, secondary_light]
+  # 10:22 — spotlights off (2s buffer after fade ends at 10:20)
+  - at: 622
+    devices: [spotlight_1, spotlight_2, spotlight_3]
     action: "off"

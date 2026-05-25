@@ -58,7 +58,7 @@ class AppConfig:
     dry_run: bool = False
 
 
-VALID_DEVICE_TYPES = {"l530", "p100"}
+VALID_DEVICE_TYPES = {"l530", "l630", "p100"}
 
 _YAML_BOOL_KEYS = {True: "on", False: "off"}
 
