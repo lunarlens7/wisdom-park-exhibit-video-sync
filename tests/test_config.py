@@ -93,6 +93,19 @@ def test_fade_cue_requires_duration(tmp_path, monkeypatch):
     with pytest.raises(ConfigError, match="duration"):
         load_config(str(f))
 
+def test_initial_state_on_false_parsed_correctly(tmp_path, monkeypatch):
+    """YAML parses bare 'on'/'off' keys as booleans — ensure they are normalized to strings."""
+    monkeypatch.setenv("TAPO_EMAIL", "test@example.com")
+    monkeypatch.setenv("TAPO_PASSWORD", "secret")
+    f = tmp_path / "config.yaml"
+    f.write_text(VALID_YAML)
+    cfg = load_config(str(f))
+    # stage_switch has initial_state: {on: false} — must be False, not defaulting to True
+    assert cfg.devices["stage_switch"].initial_state["on"] is False
+    # main_light has initial_state: {on: true}
+    assert cfg.devices["main_light"].initial_state["on"] is True
+
+
 def test_missing_screens_raises(tmp_path, monkeypatch):
     monkeypatch.setenv("TAPO_EMAIL", "test@example.com")
     monkeypatch.setenv("TAPO_PASSWORD", "secret")

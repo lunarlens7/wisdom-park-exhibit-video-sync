@@ -46,11 +46,7 @@ class CueConfig:
     action: str
     duration: float | None = None
     to_brightness: int | None = None
-    to_hue: int | None = None
-    to_saturation: int | None = None
     brightness: int | None = None
-    hue: int | None = None
-    saturation: int | None = None
 
 
 @dataclass
@@ -63,6 +59,12 @@ class AppConfig:
 
 
 VALID_DEVICE_TYPES = {"l530", "p100"}
+
+_YAML_BOOL_KEYS = {True: "on", False: "off"}
+
+
+def _normalize_initial_state(state: dict) -> dict:
+    return {_YAML_BOOL_KEYS.get(k, k): v for k, v in state.items()}
 
 
 def load_config(path: str) -> AppConfig:
@@ -111,7 +113,7 @@ def load_config(path: str) -> AppConfig:
         devices[name] = DeviceConfig(
             type=dtype,
             ip=_require(d, "ip", f"devices.{name}"),
-            initial_state=d.get("initial_state", {}),
+            initial_state=_normalize_initial_state(d.get("initial_state", {})),
         )
 
     cues: list[CueConfig] = []
@@ -133,11 +135,7 @@ def load_config(path: str) -> AppConfig:
             action=action,
             duration=c.get("duration"),
             to_brightness=c.get("to_brightness"),
-            to_hue=c.get("to_hue"),
-            to_saturation=c.get("to_saturation"),
             brightness=c.get("brightness"),
-            hue=c.get("hue"),
-            saturation=c.get("saturation"),
         ))
 
     return AppConfig(tapo=tapo, video=video, devices=devices, cues=cues, dry_run=bool(raw.get("dry_run", False)))

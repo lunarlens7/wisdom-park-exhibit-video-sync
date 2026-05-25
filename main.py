@@ -139,15 +139,11 @@ async def run_show(config_path: str) -> None:
                                     ip,
                                     duration=cue.duration,
                                     to_brightness=cue.to_brightness,
-                                    to_hue=cue.to_hue,
-                                    to_saturation=cue.to_saturation,
                                 ))
                             elif cue.action == "set_light":
                                 asyncio.create_task(ctrl.set_light(
                                     ip,
                                     brightness=cue.brightness,
-                                    hue=cue.hue,
-                                    saturation=cue.saturation,
                                 ))
                             elif cue.action == "on":
                                 if cfg.devices[device_name].type == "p100":

@@ -28,49 +28,49 @@ class DeviceController:
         return self._device_cache[ip]
 
     async def set_switch(self, ip: str, on: bool) -> None:
-        try:
-            device = await self._get_p100(ip)
-            if on:
-                await device.on()
-            else:
-                await device.off()
-            self.set_state(ip, on=on)
-        except Exception as e:
-            self._device_cache.pop(ip, None)
-            print(f"WARNING: Could not reach switch {ip}: {e}")
+        for attempt in range(2):
+            try:
+                device = await self._get_p100(ip)
+                if on:
+                    await device.on()
+                else:
+                    await device.off()
+                self.set_state(ip, on=on)
+                return
+            except Exception as e:
+                self._device_cache.pop(ip, None)
+                if attempt == 0:
+                    continue
+                print(f"WARNING: Could not reach switch {ip}: {e}")
 
     async def set_light(
         self,
         ip: str,
         brightness: int | None = None,
-        hue: int | None = None,
-        saturation: int | None = None,
         on: bool | None = None,
     ) -> None:
-        try:
-            device = await self._get_l530(ip)
-            if on is not None:
-                if on:
-                    await device.on()
-                else:
-                    await device.off()
-            if brightness is not None or hue is not None or saturation is not None:
-                current = self.get_state(ip)
-                b = brightness if brightness is not None else current.get("brightness", 100)
-                h = hue if hue is not None else current.get("hue", 0)
-                s = saturation if saturation is not None else current.get("saturation", 100)
-                await device.set_hue_saturation(h, s)
-                await device.set_brightness(b)
-            self.set_state(
-                ip,
-                **({} if brightness is None else {"brightness": brightness}),
-                **({} if hue is None else {"hue": hue}),
-                **({} if saturation is None else {"saturation": saturation}),
-                **({} if on is None else {"on": on}),
-            )
-        except Exception as e:
-            self._device_cache.pop(ip, None)
-            print(f"WARNING: Could not reach light {ip}: {e}")
+        for attempt in range(2):
+            try:
+                device = await self._get_l530(ip)
+                builder = device.set()
+                if on is False:
+                    builder = builder.off()
+                if brightness is not None:
+                    builder = builder.brightness(brightness)
+                if on is True and brightness is None:
+                    builder = builder.on()
+                await builder.send(device)
+                self.set_state(
+                    ip,
+                    **({} if brightness is None else {"brightness": brightness}),
+                    **({} if on is None else {"on": on}),
+                )
+                return
+            except Exception as e:
+                self._device_cache.pop(ip, None)
+                if attempt == 0:
+                    continue
+                print(f"WARNING: Could not reach light {ip}: {e}")
 
     async def apply_initial_state(self, ip: str, device_type: str, state: dict[str, Any]) -> None:
         on = state.get("on", True)
@@ -78,37 +78,30 @@ class DeviceController:
             print(f"    → switch {ip} {'on' if on else 'off'}")
             await self.set_switch(ip, on)
         elif device_type == "l530":
-            await self.set_light(
-                ip,
-                brightness=state.get("brightness"),
-                hue=state.get("hue"),
-                saturation=state.get("saturation"),
-                on=on,
-            )
+            configured_brightness = state.get("brightness")
+            if configured_brightness is not None:
+                self.set_state(ip, brightness=configured_brightness)
+                await self.set_light(ip, brightness=configured_brightness, on=on)
+            else:
+                device = await self._get_l530(ip)
+                info = await device.get_device_info()
+                self.set_state(ip, brightness=info.brightness)
+                await self.set_light(ip, on=on)
 
     async def fade(
         self,
         ip: str,
         duration: float,
         to_brightness: int | None = None,
-        to_hue: int | None = None,
-        to_saturation: int | None = None,
         steps: int = 20,
     ) -> None:
         current = self.get_state(ip)
         from_b = current.get("brightness", 100)
-        from_h = current.get("hue", 0)
-        from_s = current.get("saturation", 100)
-
         target_b = to_brightness if to_brightness is not None else from_b
-        target_h = to_hue if to_hue is not None else from_h
-        target_s = to_saturation if to_saturation is not None else from_s
 
         interval = duration / steps
         for i in range(1, steps + 1):
             t = i / steps
-            b = round(from_b + (target_b - from_b) * t) if to_brightness is not None else None
-            h = round(from_h + (target_h - from_h) * t) if to_hue is not None else None
-            s = round(from_s + (target_s - from_s) * t) if to_saturation is not None else None
-            await self.set_light(ip, brightness=b, hue=h, saturation=s)
+            b = round(from_b + (target_b - from_b) * t)
+            await self.set_light(ip, brightness=b)
             await asyncio.sleep(interval)

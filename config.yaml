@@ -8,7 +8,7 @@ video:
       window_title: "Screen 1"
       monitor: 1
       mute: false
-    - path: "sunset_timelapse.mp4"
+    - path: "moon.webp"
       window_title: "Screen 2"
       monitor: 2
       mute: true
@@ -16,47 +16,37 @@ video:
 devices:
   main_light:
     type: l530
-    ip: "192.168.2.28"
+    ip: "192.168.8.103"
     initial_state:
       on: true
       brightness: 80
-      hue: 0
-      saturation: 0
 
   secondary_light:
     type: l530
-    ip: "192.168.2.30"
+    ip: "192.168.8.102"
     initial_state:
       on: true
       brightness: 80
-      hue: 0
-      saturation: 0
 
   stage_switch:
     type: p100
-    ip: "192.168.2.29"
+    ip: "192.168.8.101"
     initial_state:
       on: false
 
 cues:
   # lights start at 80% white and dim to near-off over the video
-  - at: 1
+  - at: 5
     devices: [main_light, secondary_light]
     action: fade
-    to_brightness: 5
-    to_hue: 0
-    to_saturation: 0
-    duration: 22.0
+    to_brightness: 1
+    duration: 7
 
-  - at: 5
+  - at: 12
     devices: [stage_switch]
     action: "on"
 
   # lights and switch off at the end
-  - at: 24
+  - at: 20
     devices: [main_light, secondary_light]
-    action: "off"
-
-  - at: 24
-    devices: [stage_switch]
     action: "off"
