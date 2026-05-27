@@ -79,7 +79,7 @@ async def _run_secondary(
             frame, val = player.get_frame()
             if val == "eof":
                 if loop:
-                    player.seek(0, relative=False)
+                    player = MediaPlayer(screen.path, ff_opts={'an': True} if screen.mute else {})
                     await asyncio.sleep(0.1)
                 else:
                     break
@@ -150,7 +150,7 @@ async def run_show(config_path: str, seek: float = 0.0) -> None:
             if val == "eof":
                 if cfg.video.loop:
                     primary_pts[0] = 0.0
-                    player.seek(0, relative=False)
+                    player = MediaPlayer(primary.path, ff_opts={'an': True} if primary.mute else {})
                     await asyncio.sleep(0.1)
                 else:
                     break
