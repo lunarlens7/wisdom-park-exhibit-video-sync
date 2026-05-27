@@ -3,7 +3,7 @@ import sys
 import numpy as np
 import cv2
 from ffpyplayer.player import MediaPlayer
-from config import load_config, ConfigError, ScreenConfig
+from config import load_config, ConfigError, ScreenConfig, AppConfig
 from cue_engine import CueEngine
 from device_controller import DeviceController
 from discovery import discover_devices, print_devices
@@ -41,6 +41,31 @@ def _open_window(title: str, monitor: int, fullscreen: bool) -> None:
 
 
 DEVICE_TIMEOUT = 5.0
+
+
+def _states_at(cfg: AppConfig, t: float) -> dict[str, dict]:
+    """Compute the device state that would exist at time t by simulating all cues up to t."""
+    states: dict[str, dict] = {}
+    for name, dev in cfg.devices.items():
+        states[name] = dict(dev.initial_state)
+
+    for cue in sorted(cfg.cues, key=lambda c: c.at):
+        if cue.at > t:
+            break
+        for name in cue.devices:
+            s = states.setdefault(name, {})
+            if cue.action == "on":
+                s["on"] = True
+            elif cue.action == "off":
+                s["on"] = False
+            elif cue.action == "fade" and cue.to_brightness is not None:
+                from_b = s.get("brightness", 100)
+                elapsed = min(t - cue.at, cue.duration)
+                progress = elapsed / cue.duration if cue.duration else 1.0
+                s["brightness"] = round(from_b + (cue.to_brightness - from_b) * progress)
+                s["on"] = True
+
+    return states
 
 
 async def _init_device(ctrl, name: str, device) -> None:
@@ -108,7 +133,7 @@ async def _run_secondary(
         print(f"ERROR in secondary screen '{screen.window_title}': {e}")
 
 
-async def run_show(config_path: str, seek: float = 0.0) -> None:
+async def run_show(config_path: str, seek: float = 0.0, preview: float = 0.0) -> None:
     try:
         cfg = load_config(config_path)
     except ConfigError as e:
@@ -118,8 +143,21 @@ async def run_show(config_path: str, seek: float = 0.0) -> None:
     ctrl = DeviceController(cfg.tapo.email, cfg.tapo.password)
     engine = CueEngine(cfg.cues)
 
+    if preview > 0:
+        seek = preview
+
     if cfg.dry_run:
         print("Dry run mode — skipping device commands.")
+    elif preview > 0:
+        print(f"Preview mode — applying device states as of {preview:.0f}s...")
+        computed = _states_at(cfg, preview)
+        await asyncio.gather(*[
+            asyncio.wait_for(
+                ctrl.apply_initial_state(dev.ip, dev.type, computed.get(name, {})),
+                timeout=DEVICE_TIMEOUT,
+            )
+            for name, dev in cfg.devices.items()
+        ])
     else:
         await _apply_all_initial_states(ctrl, cfg)
 
@@ -135,6 +173,7 @@ async def run_show(config_path: str, seek: float = 0.0) -> None:
     print(f"Playing {len(cfg.video.screens)} screen(s). Press 'q' to quit.")
 
     seek_pending = seek > 0
+    pause_pending = preview > 0
     try:
         while True:
             frame, val = player.get_frame()
@@ -157,6 +196,19 @@ async def run_show(config_path: str, seek: float = 0.0) -> None:
                 img, pts = frame
                 primary_pts[0] = pts
                 cv2.imshow(primary.window_title, _frame_to_bgr(img))
+
+                if pause_pending:
+                    engine.tick(preview)  # mark all cues up to preview time as fired
+                    pause_pending = False
+                    print(f"Paused at {preview:.0f}s — press SPACE to resume, Q to quit")
+                    while True:
+                        key = cv2.waitKey(33) & 0xFF
+                        if key == ord(' '):
+                            break
+                        if key == ord('q'):
+                            return
+                    continue
+
                 if cv2.waitKey(1) & 0xFF == ord("q"):
                     break
 
@@ -223,6 +275,8 @@ def main() -> None:
     run_parser.add_argument("config", nargs="?", default=CONFIG_PATH)
     run_parser.add_argument("--seek", type=float, default=0.0, metavar="SECONDS",
                             help="Start playback at this position in seconds")
+    run_parser.add_argument("--preview", type=float, default=0.0, metavar="SECONDS",
+                            help="Seek to SECONDS, apply device states as of that time, and pause until SPACE")
 
     discover_parser = subparsers.add_parser("discover")
     discover_parser.add_argument("config", nargs="?", default=CONFIG_PATH)
@@ -233,7 +287,7 @@ def main() -> None:
         sys.exit(1)
 
     if args.command == "run":
-        asyncio.run(run_show(args.config, seek=args.seek))
+        asyncio.run(run_show(args.config, seek=args.seek, preview=args.preview))
     elif args.command == "discover":
         asyncio.run(run_discovery(args.config))
 
