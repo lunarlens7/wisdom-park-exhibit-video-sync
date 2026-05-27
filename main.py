@@ -68,11 +68,11 @@ def _states_at(cfg: AppConfig, t: float) -> dict[str, dict]:
     return states
 
 
-async def _init_device(ctrl, name: str, device) -> None:
+async def _init_device(ctrl, name: str, device, state=None) -> None:
     print(f"  {name} ({device.type}) @ {device.ip}")
     try:
         await asyncio.wait_for(
-            ctrl.apply_initial_state(device.ip, device.type, device.initial_state),
+            ctrl.apply_initial_state(device.ip, device.type, state if state is not None else device.initial_state),
             timeout=DEVICE_TIMEOUT,
         )
     except Exception as e:
@@ -93,6 +93,7 @@ async def _run_secondary(
     fullscreen: bool,
     seek: float = 0.0,
     reset_event: asyncio.Event | None = None,
+    pause_event: asyncio.Event | None = None,
     primary_pts: list[float] | None = None,
 ) -> None:
     try:
@@ -101,6 +102,10 @@ async def _run_secondary(
         seek_pending = seek > 0
         last_log = 0.0
         while True:
+            if pause_event is not None and pause_event.is_set():
+                await asyncio.sleep(0.033)
+                continue
+
             if reset_event is not None and reset_event.is_set():
                 player = MediaPlayer(screen.path, ff_opts={'an': True} if screen.mute else {})
                 await asyncio.sleep(0.1)
@@ -152,10 +157,7 @@ async def run_show(config_path: str, seek: float = 0.0, preview: float = 0.0) ->
         print(f"Preview mode — applying device states as of {preview:.0f}s...")
         computed = _states_at(cfg, preview)
         await asyncio.gather(*[
-            asyncio.wait_for(
-                ctrl.apply_initial_state(dev.ip, dev.type, computed.get(name, {})),
-                timeout=DEVICE_TIMEOUT,
-            )
+            _init_device(ctrl, name, dev, computed.get(name, {}))
             for name, dev in cfg.devices.items()
         ])
     else:
@@ -167,8 +169,9 @@ async def run_show(config_path: str, seek: float = 0.0, preview: float = 0.0) ->
 
     primary_pts: list[float] = [0.0]
     reset_event = asyncio.Event()
+    pause_event = asyncio.Event()
     for screen in cfg.video.screens[1:]:
-        asyncio.create_task(_run_secondary(screen, cfg.video.loop, cfg.video.fullscreen, seek=seek, reset_event=reset_event, primary_pts=primary_pts))
+        asyncio.create_task(_run_secondary(screen, cfg.video.loop, cfg.video.fullscreen, seek=seek, reset_event=reset_event, pause_event=pause_event, primary_pts=primary_pts))
 
     print(f"Playing {len(cfg.video.screens)} screen(s). Press 'q' to quit.")
 
@@ -200,6 +203,7 @@ async def run_show(config_path: str, seek: float = 0.0, preview: float = 0.0) ->
                 if pause_pending:
                     engine.tick(preview)  # mark all cues up to preview time as fired
                     pause_pending = False
+                    pause_event.set()
                     print(f"Paused at {preview:.0f}s — press SPACE to resume, Q to quit")
                     while True:
                         key = cv2.waitKey(33) & 0xFF
@@ -207,6 +211,7 @@ async def run_show(config_path: str, seek: float = 0.0, preview: float = 0.0) ->
                             break
                         if key == ord('q'):
                             return
+                    pause_event.clear()
                     continue
 
                 if cv2.waitKey(1) & 0xFF == ord("q"):
