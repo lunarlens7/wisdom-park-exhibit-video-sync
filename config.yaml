@@ -33,18 +33,21 @@ devices:
     ip: "192.168.8.100"
     initial_state:
       on: false
+      brightness: 1
 
   spotlight_2:
     type: l630
     ip: "192.168.8.101"
     initial_state:
       on: false
+      brightness: 1
 
   spotlight_3:
     type: l630
     ip: "192.168.8.102"
     initial_state:
       on: false
+      brightness: 1
 
   stage_switch:
     type: p100
