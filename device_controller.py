@@ -8,6 +8,7 @@ class DeviceController:
         self._client = ApiClient(email, password)
         self._state: dict[str, dict[str, Any]] = {}
         self._device_cache: dict[str, Any] = {}
+        self._fade_gen: dict[str, int] = {}
 
     def get_state(self, ip: str) -> dict[str, Any]:
         return self._state.get(ip, {})
@@ -37,7 +38,11 @@ class DeviceController:
             self._device_cache[ip] = await self._client.p100(ip)
         return self._device_cache[ip]
 
+    def _bump_gen(self, ip: str) -> None:
+        self._fade_gen[ip] = self._fade_gen.get(ip, 0) + 1
+
     async def set_switch(self, ip: str, on: bool) -> None:
+        self._bump_gen(ip)
         for attempt in range(2):
             try:
                 device = await self._get_p100(ip)
@@ -60,6 +65,8 @@ class DeviceController:
         brightness: int | None = None,
         on: bool | None = None,
     ) -> None:
+        if on is not None:
+            self._bump_gen(ip)
         for attempt in range(2):
             try:
                 device = await self._get_light(ip, device_type)
@@ -112,12 +119,17 @@ class DeviceController:
         to_brightness: int | None = None,
         steps: int = 20,
     ) -> None:
+        self._bump_gen(ip)
+        gen = self._fade_gen[ip]
+
         current = self.get_state(ip)
         from_b = current.get("brightness", 100)
         target_b = to_brightness if to_brightness is not None else from_b
 
         interval = duration / steps
         for i in range(1, steps + 1):
+            if self._fade_gen.get(ip) != gen:
+                return
             t = i / steps
             b = round(from_b + (target_b - from_b) * t)
             await self.set_light(ip, device_type=device_type, brightness=b)

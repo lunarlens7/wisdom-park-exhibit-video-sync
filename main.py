@@ -67,8 +67,8 @@ async def _run_secondary(
     loop: bool,
     fullscreen: bool,
     seek: float = 0.0,
-    primary_pts: list[float] | None = None,
     reset_event: asyncio.Event | None = None,
+    primary_pts: list[float] | None = None,
 ) -> None:
     try:
         player = MediaPlayer(screen.path, ff_opts={'an': True} if screen.mute else {})
@@ -130,7 +130,7 @@ async def run_show(config_path: str, seek: float = 0.0) -> None:
     primary_pts: list[float] = [0.0]
     reset_event = asyncio.Event()
     for screen in cfg.video.screens[1:]:
-        asyncio.create_task(_run_secondary(screen, cfg.video.loop, cfg.video.fullscreen, seek=seek, primary_pts=primary_pts, reset_event=reset_event))
+        asyncio.create_task(_run_secondary(screen, cfg.video.loop, cfg.video.fullscreen, seek=seek, reset_event=reset_event, primary_pts=primary_pts))
 
     print(f"Playing {len(cfg.video.screens)} screen(s). Press 'q' to quit.")
 
@@ -141,7 +141,6 @@ async def run_show(config_path: str, seek: float = 0.0) -> None:
 
             if val == "eof":
                 if cfg.video.loop:
-                    primary_pts[0] = 0.0
                     reset_event.set()
                     player = MediaPlayer(primary.path, ff_opts={'an': True} if primary.mute else {})
                     await asyncio.sleep(0.1)
