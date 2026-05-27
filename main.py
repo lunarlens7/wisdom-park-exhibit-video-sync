@@ -41,7 +41,6 @@ def _open_window(title: str, monitor: int, fullscreen: bool) -> None:
 
 
 DEVICE_TIMEOUT = 5.0
-SYNC_DRIFT_THRESHOLD = 0.3  # seconds of drift before correcting secondary player
 
 
 async def _init_device(ctrl, name: str, device) -> None:
@@ -69,6 +68,7 @@ async def _run_secondary(
     fullscreen: bool,
     seek: float = 0.0,
     primary_pts: list[float] | None = None,
+    reset_event: asyncio.Event | None = None,
 ) -> None:
     try:
         player = MediaPlayer(screen.path, ff_opts={'an': True} if screen.mute else {})
@@ -76,6 +76,11 @@ async def _run_secondary(
         seek_pending = seek > 0
         last_log = 0.0
         while True:
+            if reset_event is not None and reset_event.is_set():
+                player = MediaPlayer(screen.path, ff_opts={'an': True} if screen.mute else {})
+                await asyncio.sleep(0.1)
+                continue
+
             frame, val = player.get_frame()
             if val == "eof":
                 if loop:
@@ -96,15 +101,6 @@ async def _run_secondary(
                     if now - last_log >= 1.0:
                         last_log = now
                         print(f"  [{screen.window_title}] sec={sec_pts:.3f}s  primary={primary_pts[0]:.3f}s  drift={drift:+.3f}s")
-                    # if drift < -SYNC_DRIFT_THRESHOLD:
-                    #     # Secondary is behind — drain frames until caught up
-                    #     print(f"  [{screen.window_title}] CATCH UP  drift={drift:+.3f}s")
-                    #     while drift < -SYNC_DRIFT_THRESHOLD:
-                    #         f2, _ = player.get_frame()
-                    #         if f2 is None:
-                    #             break
-                    #         img, sec_pts = f2
-                    #         drift = sec_pts - primary_pts[0]
                 cv2.imshow(screen.window_title, _frame_to_bgr(img))
                 cv2.waitKey(1)
             await asyncio.sleep(0.001)
@@ -132,8 +128,9 @@ async def run_show(config_path: str, seek: float = 0.0) -> None:
     _open_window(primary.window_title, primary.monitor, cfg.video.fullscreen)
 
     primary_pts: list[float] = [0.0]
+    reset_event = asyncio.Event()
     for screen in cfg.video.screens[1:]:
-        asyncio.create_task(_run_secondary(screen, cfg.video.loop, cfg.video.fullscreen, seek=seek, primary_pts=primary_pts))
+        asyncio.create_task(_run_secondary(screen, cfg.video.loop, cfg.video.fullscreen, seek=seek, primary_pts=primary_pts, reset_event=reset_event))
 
     print(f"Playing {len(cfg.video.screens)} screen(s). Press 'q' to quit.")
 
@@ -145,8 +142,10 @@ async def run_show(config_path: str, seek: float = 0.0) -> None:
             if val == "eof":
                 if cfg.video.loop:
                     primary_pts[0] = 0.0
+                    reset_event.set()
                     player = MediaPlayer(primary.path, ff_opts={'an': True} if primary.mute else {})
                     await asyncio.sleep(0.1)
+                    reset_event.clear()
                 else:
                     break
             elif frame is not None:
