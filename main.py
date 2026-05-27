@@ -74,6 +74,7 @@ async def _run_secondary(
         player = MediaPlayer(screen.path, ff_opts={'an': True} if screen.mute else {})
         _open_window(screen.window_title, screen.monitor, fullscreen)
         seek_pending = seek > 0
+        last_log = 0.0
         while True:
             frame, val = player.get_frame()
             if val == "eof":
@@ -91,17 +92,24 @@ async def _run_secondary(
                 img, sec_pts = frame
                 if primary_pts is not None and sec_pts > 0:
                     drift = sec_pts - primary_pts[0]
-                    if drift > SYNC_DRIFT_THRESHOLD:
-                        # Secondary is ahead — drop this frame
-                        continue
-                    if drift < -SYNC_DRIFT_THRESHOLD:
-                        # Secondary is behind — drain frames until caught up
-                        while drift < -SYNC_DRIFT_THRESHOLD:
-                            f2, _ = player.get_frame()
-                            if f2 is None:
-                                break
-                            img, sec_pts = f2
-                            drift = sec_pts - primary_pts[0]
+                    now = asyncio.get_event_loop().time()
+                    if now - last_log >= 1.0:
+                        last_log = now
+                        print(f"  [{screen.window_title}] sec={sec_pts:.3f}s  primary={primary_pts[0]:.3f}s  drift={drift:+.3f}s")
+                    if abs(drift) < 5.0:
+                        if drift > SYNC_DRIFT_THRESHOLD:
+                            # Secondary is ahead — drop this frame
+                            print(f"  [{screen.window_title}] DROP  drift={drift:+.3f}s")
+                            continue
+                        if drift < -SYNC_DRIFT_THRESHOLD:
+                            # Secondary is behind — drain frames until caught up
+                            print(f"  [{screen.window_title}] CATCH UP  drift={drift:+.3f}s")
+                            while drift < -SYNC_DRIFT_THRESHOLD:
+                                f2, _ = player.get_frame()
+                                if f2 is None:
+                                    break
+                                img, sec_pts = f2
+                                drift = sec_pts - primary_pts[0]
                 cv2.imshow(screen.window_title, _frame_to_bgr(img))
                 cv2.waitKey(1)
             await asyncio.sleep(0.001)
@@ -141,6 +149,7 @@ async def run_show(config_path: str, seek: float = 0.0) -> None:
 
             if val == "eof":
                 if cfg.video.loop:
+                    primary_pts[0] = 0.0
                     player.seek(0, relative=False)
                     await asyncio.sleep(0.1)
                 else:
