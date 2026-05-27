@@ -16,80 +16,85 @@ video:
 devices:
   main_light:
     type: l530
-    ip: "192.168.8.105"
+    ip: "192.168.8.104"
     initial_state:
       on: true
       brightness: 1
 
   overhead_light_2:
     type: l530
-    ip: "192.168.8.106"
+    ip: "192.168.8.103"
     initial_state:
       on: true
       brightness: 1
 
   spotlight_1:
     type: l630
-    ip: "192.168.8.103"
+    ip: "192.168.8.100"
     initial_state:
       on: false
 
   spotlight_2:
     type: l630
-    ip: "192.168.8.102"
+    ip: "192.168.8.101"
     initial_state:
       on: false
 
   spotlight_3:
     type: l630
-    ip: "192.168.8.100"
+    ip: "192.168.8.102"
     initial_state:
       on: false
 
   stage_switch:
     type: p100
-    ip: "192.168.8.101"
+    ip: "192.168.8.106"
     initial_state:
       on: true
 
 cues:
   # 0-15s: overheads fade to full, spotlights fade on to 70%
-  - at: 5
-    devices: [main_light, overhead_light_2]
-    action: fade
-    duration: 15
-    to_brightness: 100
-
-  - at: 5
-    devices: [spotlight_1, spotlight_2, spotlight_3]
-    action: fade
-    duration: 15
-    to_brightness: 70
-
-  # miniature lights switch off at 15s
-  - at: 15
-    devices: [stage_switch]
-    action: "off"
-
-  # 10:10 — fade overheads and spotlights to near-off over 10s
-  - at: 610
+  - at: 3
     devices: [main_light, overhead_light_2]
     action: fade
     duration: 10
+    to_brightness: 100
+
+  - at: 3
+    devices: [spotlight_1, spotlight_2, spotlight_3]
+    action: fade
+    duration: 10
+    to_brightness: 70
+
+  # miniature lights switch off at 15s
+  - at: 10
+    devices: [stage_switch]
+    action: "off"
+
+  # 4:02 — fade overheads and spotlights to near-off over 10s
+  - at: 240
+    devices: [main_light, overhead_light_2]
+    action: fade
+    duration: 8
     to_brightness: 1
 
-  - at: 610
+  - at: 240
     devices: [spotlight_1, spotlight_2, spotlight_3]
     action: fade
     duration: 8
     to_brightness: 1
 
-  # 10:15 — miniature lights switch on
-  - at: 615
+  # 4:07 — miniature lights switch on
+  - at: 247
     devices: [stage_switch]
     action: "on"
 
-  # 10:22 — spotlights off (2s buffer after fade ends at 10:20)
-  - at: 622
+  # 4:12 — spotlights off (2s buffer after fade ends at 4:10)
+  - at: 252
     devices: [spotlight_1, spotlight_2, spotlight_3]
+    action: "off"
+
+  # 4:12 — overhead lights off (2s buffer after fade ends at 4:10)
+  - at: 252
+    devices: [main_light, overhead_light_2]
     action: "off"
