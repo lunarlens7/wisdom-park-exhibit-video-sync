@@ -101,8 +101,13 @@ async def _run_secondary(
         _open_window(screen.window_title, screen.monitor, fullscreen)
         seek_pending = seek > 0
         last_log = 0.0
+        paused = False
         while True:
-            if pause_event is not None and pause_event.is_set():
+            is_paused = pause_event is not None and pause_event.is_set()
+            if is_paused != paused:
+                player.set_pause(is_paused)
+                paused = is_paused
+            if is_paused:
                 await asyncio.sleep(0.033)
                 continue
 
@@ -164,7 +169,8 @@ async def run_show(config_path: str, seek: float = 0.0, preview: float = 0.0) ->
         await _apply_all_initial_states(ctrl, cfg)
 
     primary = cfg.video.screens[0]
-    player = MediaPlayer(primary.path, ff_opts={'an': True} if primary.mute else {})
+    ff_opts = {'an': True} if (primary.mute or preview > 0) else {}
+    player = MediaPlayer(primary.path, ff_opts=ff_opts)
     _open_window(primary.window_title, primary.monitor, cfg.video.fullscreen)
 
     primary_pts: list[float] = [0.0]
@@ -200,18 +206,24 @@ async def run_show(config_path: str, seek: float = 0.0, preview: float = 0.0) ->
                 primary_pts[0] = pts
                 cv2.imshow(primary.window_title, _frame_to_bgr(img))
 
-                if pause_pending:
+                if pause_pending and pts >= preview - 1.0:
                     engine.tick(preview)  # mark all cues up to preview time as fired
                     pause_pending = False
+                    frozen_frame = _frame_to_bgr(img)
+                    player.set_pause(True)
                     pause_event.set()
                     print(f"Paused at {preview:.0f}s — press SPACE to resume, Q to quit")
                     while True:
+                        cv2.imshow(primary.window_title, frozen_frame)
                         key = cv2.waitKey(33) & 0xFF
                         if key == ord(' '):
                             break
                         if key == ord('q'):
                             return
                     pause_event.clear()
+                    player = MediaPlayer(primary.path, ff_opts={'an': True} if primary.mute else {})
+                    player.seek(preview, relative=False)
+                    await asyncio.sleep(0.1)
                     continue
 
                 if cv2.waitKey(1) & 0xFF == ord("q"):
@@ -259,6 +271,22 @@ async def run_show(config_path: str, seek: float = 0.0, preview: float = 0.0) ->
         cv2.destroyAllWindows()
 
 
+async def run_lights_off(config_path: str) -> None:
+    try:
+        cfg = load_config(config_path)
+    except ConfigError as e:
+        print(f"Config error: {e}")
+        sys.exit(1)
+
+    ctrl = DeviceController(cfg.tapo.email, cfg.tapo.password)
+    print("Turning off all devices...")
+    await asyncio.gather(*[
+        _init_device(ctrl, name, device, {"on": False})
+        for name, device in cfg.devices.items()
+    ])
+    print("Done.")
+
+
 async def run_discovery(config_path: str) -> None:
     try:
         cfg = load_config(config_path)
@@ -286,6 +314,9 @@ def main() -> None:
     discover_parser = subparsers.add_parser("discover")
     discover_parser.add_argument("config", nargs="?", default=CONFIG_PATH)
 
+    lights_off_parser = subparsers.add_parser("lights-off")
+    lights_off_parser.add_argument("config", nargs="?", default=CONFIG_PATH)
+
     args = parser.parse_args()
     if args.command is None:
         parser.print_help()
@@ -295,6 +326,8 @@ def main() -> None:
         asyncio.run(run_show(args.config, seek=args.seek, preview=args.preview))
     elif args.command == "discover":
         asyncio.run(run_discovery(args.config))
+    elif args.command == "lights-off":
+        asyncio.run(run_lights_off(args.config))
 
 
 if __name__ == "__main__":

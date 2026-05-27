@@ -1,6 +1,6 @@
 # Wisdom Park Exhibit — Video Sync Lighting Controller
 
-Plays videos on one or more monitors and syncs Tapo L530 lights and P100 switches to the playback position.
+Plays videos on one or more monitors and syncs Tapo smart lights (L530, L630) and switches (P100) to the playback position.
 
 ## Requirements
 
@@ -105,6 +105,15 @@ If you don't know your device IPs, use the discover command (below).
 python main.py run        # Windows
 python3 main.py run       # macOS
 
+# Seek to a position and pause before starting
+python main.py run --preview 230     # pause at 2m10s, devices set to that state; SPACE to resume
+
+# Start playback from a specific position (no pause)
+python main.py run --seek 120        # start at 2m00s
+
+# Turn off all devices defined in config
+python main.py lights-off
+
 # Find Tapo devices on your local network
 python main.py discover
 
@@ -118,10 +127,10 @@ Press `q` in any video window to quit.
 
 | Action | Device | Description |
 |---|---|---|
-| `fade` | l530 | Smooth transition of brightness/hue/saturation over `duration` seconds |
-| `set_light` | l530 | Instant change of brightness/hue/saturation |
-| `"on"` | p100 | Turn switch on |
-| `"off"` | p100 | Turn switch off |
+| `fade` | l530, l630 | Smooth brightness transition over `duration` seconds |
+| `set_light` | l530, l630 | Instant brightness change |
+| `"on"` | l530, l630, p100 | Turn device on |
+| `"off"` | l530, l630, p100 | Turn device off |
 
 Cue timings are driven by the first screen's video position. Quote `"on"` and `"off"` in the YAML to prevent them being parsed as booleans.
 
