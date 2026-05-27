@@ -41,6 +41,7 @@ def _open_window(title: str, monitor: int, fullscreen: bool) -> None:
 
 
 DEVICE_TIMEOUT = 5.0
+SYNC_DRIFT_THRESHOLD = 0.3  # seconds of drift before correcting secondary player
 
 
 async def _init_device(ctrl, name: str, device) -> None:
@@ -62,7 +63,13 @@ async def _apply_all_initial_states(ctrl, cfg) -> None:
     ])
 
 
-async def _run_secondary(screen: ScreenConfig, loop: bool, fullscreen: bool, seek: float = 0.0) -> None:
+async def _run_secondary(
+    screen: ScreenConfig,
+    loop: bool,
+    fullscreen: bool,
+    seek: float = 0.0,
+    primary_pts: list[float] | None = None,
+) -> None:
     try:
         player = MediaPlayer(screen.path, ff_opts={'an': True} if screen.mute else {})
         _open_window(screen.window_title, screen.monitor, fullscreen)
@@ -81,7 +88,20 @@ async def _run_secondary(screen: ScreenConfig, loop: bool, fullscreen: bool, see
                     seek_pending = False
                     await asyncio.sleep(0.1)
                     continue
-                img, _ = frame
+                img, sec_pts = frame
+                if primary_pts is not None and sec_pts > 0:
+                    drift = sec_pts - primary_pts[0]
+                    if drift > SYNC_DRIFT_THRESHOLD:
+                        # Secondary is ahead — drop this frame
+                        continue
+                    if drift < -SYNC_DRIFT_THRESHOLD:
+                        # Secondary is behind — drain frames until caught up
+                        while drift < -SYNC_DRIFT_THRESHOLD:
+                            f2, _ = player.get_frame()
+                            if f2 is None:
+                                break
+                            img, sec_pts = f2
+                            drift = sec_pts - primary_pts[0]
                 cv2.imshow(screen.window_title, _frame_to_bgr(img))
                 cv2.waitKey(1)
             await asyncio.sleep(0.001)
@@ -108,8 +128,9 @@ async def run_show(config_path: str, seek: float = 0.0) -> None:
     player = MediaPlayer(primary.path, ff_opts={'an': True} if primary.mute else {})
     _open_window(primary.window_title, primary.monitor, cfg.video.fullscreen)
 
+    primary_pts: list[float] = [0.0]
     for screen in cfg.video.screens[1:]:
-        asyncio.create_task(_run_secondary(screen, cfg.video.loop, cfg.video.fullscreen, seek=seek))
+        asyncio.create_task(_run_secondary(screen, cfg.video.loop, cfg.video.fullscreen, seek=seek, primary_pts=primary_pts))
 
     print(f"Playing {len(cfg.video.screens)} screen(s). Press 'q' to quit.")
 
@@ -132,6 +153,7 @@ async def run_show(config_path: str, seek: float = 0.0) -> None:
                     await asyncio.sleep(0.1)
                     continue
                 img, pts = frame
+                primary_pts[0] = pts
                 cv2.imshow(primary.window_title, _frame_to_bgr(img))
                 if cv2.waitKey(1) & 0xFF == ord("q"):
                     break
