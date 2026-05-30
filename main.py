@@ -1,4 +1,5 @@
 import asyncio
+import os
 import sys
 import numpy as np
 import cv2
@@ -9,6 +10,7 @@ from device_controller import DeviceController
 from discovery import discover_devices, print_devices
 
 CONFIG_PATH = "config.yaml"
+AUDIO_PAUSE_FILE = ".audio_pause"
 
 
 def _frame_to_bgr(img) -> np.ndarray:
@@ -138,15 +140,36 @@ async def _run_secondary(
                         print(f"  [{screen.window_title}] sec={sec_pts:.3f}s  primary={primary_pts[0]:.3f}s  drift={drift:+.3f}s")
                 cv2.imshow(screen.window_title, _frame_to_bgr(img))
                 cv2.waitKey(1)
-            await asyncio.sleep(0.001)
+            sleep_time = max(0.001, val) if isinstance(val, (int, float)) and frame is not None else 0.001
+            await asyncio.sleep(sleep_time)
     except Exception as e:
         print(f"ERROR in secondary screen '{screen.window_title}': {e}")
 
 
+async def run_audio_loop(path: str) -> None:
+    """Play an audio file on a loop, pausing whenever AUDIO_PAUSE_FILE exists."""
+    print(f"Background audio: {path}  (pause signal: {AUDIO_PAUSE_FILE})")
+    paused = False
+    # loop=0 tells ffpyplayer to repeat indefinitely
+    player = MediaPlayer(path, ff_opts={'loop': 0})
+    try:
+        while True:
+            should_pause = os.path.exists(AUDIO_PAUSE_FILE)
+            if should_pause != paused:
+                player.set_pause(should_pause)
+                paused = should_pause
+                print("Background audio paused." if paused else "Background audio resumed.")
+            await asyncio.sleep(0.1)
+    except asyncio.CancelledError:
+        pass
+
+
 async def run_show(config_path: str, seek: float = 0.0, preview: float = 0.0) -> None:
+    open(AUDIO_PAUSE_FILE, "w").close()
     try:
         cfg = load_config(config_path)
     except ConfigError as e:
+        os.unlink(AUDIO_PAUSE_FILE)
         print(f"Config error: {e}")
         sys.exit(1)
 
@@ -266,8 +289,11 @@ async def run_show(config_path: str, seek: float = 0.0, preview: float = 0.0) ->
                                 else:
                                     asyncio.create_task(ctrl.set_light(ip, device_type=dtype, on=False))
 
-            await asyncio.sleep(0.001)
+            sleep_time = max(0.001, val) if isinstance(val, (int, float)) and frame is not None else 0.001
+            await asyncio.sleep(sleep_time)
     finally:
+        if os.path.exists(AUDIO_PAUSE_FILE):
+            os.unlink(AUDIO_PAUSE_FILE)
         cv2.destroyAllWindows()
 
 
@@ -311,6 +337,10 @@ def main() -> None:
     run_parser.add_argument("--preview", type=float, default=0.0, metavar="SECONDS",
                             help="Seek to SECONDS, apply device states as of that time, and pause until SPACE")
 
+    audio_parser = subparsers.add_parser("audio")
+    audio_parser.add_argument("path", nargs="?", default="sample.mp3",
+                              help="Audio file to loop (default: sample.mp3)")
+
     discover_parser = subparsers.add_parser("discover")
     discover_parser.add_argument("config", nargs="?", default=CONFIG_PATH)
 
@@ -324,6 +354,8 @@ def main() -> None:
 
     if args.command == "run":
         asyncio.run(run_show(args.config, seek=args.seek, preview=args.preview))
+    elif args.command == "audio":
+        asyncio.run(run_audio_loop(args.path))
     elif args.command == "discover":
         asyncio.run(run_discovery(args.config))
     elif args.command == "lights-off":
