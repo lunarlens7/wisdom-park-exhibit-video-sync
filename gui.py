@@ -17,6 +17,7 @@ AUDIO_FILE = "night_audio.mp3"
 AUDIO_PAUSE_FILE = ".audio_pause"
 ARDUINO_PORT = "COM4"
 ARDUINO_BAUD = 9600
+DOUBLE_PRESS_WINDOW = 1.5  # seconds between presses to count as a double-press
 
 READY_STATE = {
     "main_light":       {"on": True,  "brightness": 1},
@@ -56,6 +57,7 @@ class ExhibitApp(tk.Tk):
         self._show_proc: subprocess.Popen | None = None
         self._audio_proc: subprocess.Popen | None = None
         self._ctrl: DeviceController | None = None
+        self._last_cancel_press: float = 0.0
         # asyncio loop in background thread for all device ops
         self._async_loop = asyncio.new_event_loop()
         t = threading.Thread(target=self._async_loop.run_forever, daemon=True)
@@ -507,12 +509,19 @@ class ExhibitApp(tk.Tk):
             self._log(f"Arduino ({ARDUINO_PORT}): {e} — physical button unavailable")
 
     def _on_arduino_trigger(self):
+        import time
         if self._state == "verified":
             self._log("Button pressed — starting show")
             self._on_start()
         elif self._state == "running":
-            self._log("Button pressed — cancelling show")
-            self._on_cancel()
+            now = time.monotonic()
+            if now - self._last_cancel_press <= DOUBLE_PRESS_WINDOW:
+                self._last_cancel_press = 0.0
+                self._log("Double press — cancelling show")
+                self._on_cancel()
+            else:
+                self._last_cancel_press = now
+                self._log("Button pressed — press again within 1.5 s to cancel show")
 
     # ── Audio ─────────────────────────────────────────────────────────────────
 
