@@ -5,7 +5,7 @@ async def discover_devices(email: str, password: str, timeout: float = 10.0) -> 
     client = ApiClient(email, password)
     found = []
     try:
-        discovery = await client.discover_devices("255.255.255.255", timeout_s=int(timeout))
+        discovery = await client.discover_devices("192.168.8.255", timeout_s=int(timeout))
         async for maybe in discovery:
             device = maybe.get()
             if device is None:

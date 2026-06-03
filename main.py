@@ -2,13 +2,19 @@ import asyncio
 import sys
 import numpy as np
 import cv2
+import os
 from ffpyplayer.player import MediaPlayer
 from config import load_config, ConfigError, ScreenConfig, AppConfig
 from cue_engine import CueEngine
 from device_controller import DeviceController
 from discovery import discover_devices, print_devices
+import keyboard
 
 CONFIG_PATH = "config.yaml"
+AUDIO_PAUSE_FILE = ".audio_pause"
+
+pressed = []
+keyboard.on_press(lambda e: pressed.append(e.name))
 
 
 def _frame_to_bgr(img) -> np.ndarray:
@@ -135,18 +141,26 @@ async def _run_secondary(
                     now = asyncio.get_event_loop().time()
                     if now - last_log >= 1.0:
                         last_log = now
-                        print(f"  [{screen.window_title}] sec={sec_pts:.3f}s  primary={primary_pts[0]:.3f}s  drift={drift:+.3f}s")
                 cv2.imshow(screen.window_title, _frame_to_bgr(img))
                 cv2.waitKey(1)
-            await asyncio.sleep(0.001)
+            if isinstance(val, (int, float)) and val > 0:
+                await asyncio.sleep(val)
+            else:
+                await asyncio.sleep(0.001)
     except Exception as e:
         print(f"ERROR in secondary screen '{screen.window_title}': {e}")
 
+# def key_pressed():
+#     import msvcrt
+#     return msvcrt.kbhit()
+
 
 async def run_show(config_path: str, seek: float = 0.0, preview: float = 0.0) -> None:
+    open(AUDIO_PAUSE_FILE, "w").close()
     try:
         cfg = load_config(config_path)
     except ConfigError as e:
+        os.unlink(AUDIO_PAUSE_FILE)
         print(f"Config error: {e}")
         sys.exit(1)
 
@@ -183,12 +197,24 @@ async def run_show(config_path: str, seek: float = 0.0, preview: float = 0.0) ->
 
     seek_pending = seek > 0
     pause_pending = preview > 0
+
+    #1. Track how many times have played
+    play_count = 1
+    max_loops = 2
     try:
         while True:
             frame, val = player.get_frame()
 
+            if pressed:
+                print(pressed)
+                print("A key was pressed, shutting program down.")
+                break
+
             if val == "eof":
-                if cfg.video.loop:
+                if cfg.video.loop and play_count < max_loops:
+                    print('Play count:', play_count)
+                    play_count += 1
+
                     reset_event.set()
                     player = MediaPlayer(primary.path, ff_opts={'an': True} if primary.mute else {})
                     await asyncio.sleep(0.1)
@@ -265,10 +291,33 @@ async def run_show(config_path: str, seek: float = 0.0, preview: float = 0.0) ->
                                     asyncio.create_task(ctrl.set_switch(ip, False))
                                 else:
                                     asyncio.create_task(ctrl.set_light(ip, device_type=dtype, on=False))
+            if isinstance(val, (int, float)) and val > 0:
+                await asyncio.sleep(val)
+            else:
+                await asyncio.sleep(0.001)
 
             await asyncio.sleep(0.001)
     finally:
+        if os.path.exists(AUDIO_PAUSE_FILE):
+            os.unlink(AUDIO_PAUSE_FILE)
         cv2.destroyAllWindows()
+
+async def run_audio_loop(path: str) -> None:
+    """Play an audio file on a loop, pausing whenever AUDIO_PAUSE_FILE exists."""
+    print(f"Background audio: {path}  (pause signal: {AUDIO_PAUSE_FILE})")
+    paused = False
+    # loop=0 tells ffpyplayer to repeat indefinitely
+    player = MediaPlayer(path, ff_opts={'loop': 0, 'volume': 1.0 }) # volume is between 0.0 - 1.0
+    try:
+        while True:
+            should_pause = os.path.exists(AUDIO_PAUSE_FILE)
+            if should_pause != paused:
+                player.set_pause(should_pause)
+                paused = should_pause
+                print("Background audio paused." if paused else "Background audio resumed.")
+            await asyncio.sleep(0.1)
+    except asyncio.CancelledError:
+        pass
 
 
 async def run_lights_off(config_path: str) -> None:
@@ -310,6 +359,9 @@ def main() -> None:
                             help="Start playback at this position in seconds")
     run_parser.add_argument("--preview", type=float, default=0.0, metavar="SECONDS",
                             help="Seek to SECONDS, apply device states as of that time, and pause until SPACE")
+    audio_parser = subparsers.add_parser("audio")
+    audio_parser.add_argument("path", nargs="?", default="night_audio.mp3",
+                              help="Audio file to loop (default: night_audio.mp3)")
 
     discover_parser = subparsers.add_parser("discover")
     discover_parser.add_argument("config", nargs="?", default=CONFIG_PATH)
@@ -324,6 +376,8 @@ def main() -> None:
 
     if args.command == "run":
         asyncio.run(run_show(args.config, seek=args.seek, preview=args.preview))
+    elif args.command == "audio":
+        asyncio.run(run_audio_loop(args.path))
     elif args.command == "discover":
         asyncio.run(run_discovery(args.config))
     elif args.command == "lights-off":
