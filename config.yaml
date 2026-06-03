@@ -91,9 +91,9 @@ video:
   screens:
     - monitor: 1
       mute: true
-      path: Full_Day_Sequence_B.mp4
+      path: Full Day_Sequence_B.mp4
       window_title: Screen 1
     - monitor: 2
       mute: false
-      path: Full_Day_Sequence_A.mp4
+      path: Full Day Sequence_A (with mask).mp4
       window_title: Screen 2

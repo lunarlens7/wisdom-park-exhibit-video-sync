@@ -13,7 +13,8 @@ from device_controller import DeviceController
 from discovery import discover_devices
 
 CONFIG_PATH = "config.yaml"
-TRIGGER_FILE = ".trigger"
+ARDUINO_PORT = "COM4"
+ARDUINO_BAUD = 9600
 
 READY_STATE = {
     "main_light":       {"on": True,  "brightness": 1},
@@ -59,7 +60,7 @@ class ExhibitApp(tk.Tk):
 
         self._build_ui()
         self._set_state("idle")
-        self._poll_trigger()
+        threading.Thread(target=self._arduino_thread, daemon=True).start()
 
         self.protocol("WM_DELETE_WINDOW", self._on_close)
 
@@ -476,16 +477,25 @@ class ExhibitApp(tk.Tk):
 
         threading.Thread(target=_run, daemon=True).start()
 
-    # ── Arduino trigger (via hotkey.py trigger file) ──────────────────────────
+    # ── Arduino ───────────────────────────────────────────────────────────────
 
-    def _poll_trigger(self):
-        if os.path.exists(TRIGGER_FILE):
-            try:
-                os.unlink(TRIGGER_FILE)
-            except OSError:
-                pass
-            self._on_arduino_trigger()
-        self.after(200, self._poll_trigger)
+    def _arduino_thread(self):
+        try:
+            import serial
+            import time
+            ser = serial.Serial(ARDUINO_PORT, ARDUINO_BAUD, timeout=1)
+            time.sleep(2)
+            self._log(f"Arduino connected on {ARDUINO_PORT}")
+            while not self._app_shutdown.is_set():
+                if ser.in_waiting > 0:
+                    try:
+                        line = ser.readline().decode("utf-8").strip()
+                        if line == "TRIGGER_KEYS":
+                            self.after(0, self._on_arduino_trigger)
+                    except Exception:
+                        pass
+        except Exception as e:
+            self._log(f"Arduino ({ARDUINO_PORT}): {e} — physical button unavailable")
 
     def _on_arduino_trigger(self):
         if self._state == "verified":
