@@ -87,11 +87,11 @@ devices:
 dry_run: false
 video:
   fullscreen: true
-  loop: true
+  loop: false
   screens:
     - monitor: 1
       mute: true
-      path: Full Day_Sequence_B.mp4
+      path: Full Day Sequence_B.mp4
       window_title: Screen 1
     - monitor: 2
       mute: false

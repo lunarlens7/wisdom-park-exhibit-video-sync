@@ -13,6 +13,8 @@ from device_controller import DeviceController
 from discovery import discover_devices
 
 CONFIG_PATH = "config.yaml"
+AUDIO_FILE = "night_audio.mp3"
+AUDIO_PAUSE_FILE = ".audio_pause"
 ARDUINO_PORT = "COM4"
 ARDUINO_BAUD = 9600
 
@@ -52,6 +54,7 @@ class ExhibitApp(tk.Tk):
         self._state = "idle"
         self._app_shutdown = threading.Event()
         self._show_proc: subprocess.Popen | None = None
+        self._audio_proc: subprocess.Popen | None = None
         self._ctrl: DeviceController | None = None
         # asyncio loop in background thread for all device ops
         self._async_loop = asyncio.new_event_loop()
@@ -302,6 +305,7 @@ class ExhibitApp(tk.Tk):
             self._log(f"WARNING: Ready state partially failed: {e}")
 
         self._log("── Verification PASSED — ready to run ──")
+        self._start_audio()
         self.after(0, lambda: self._set_state("verified"))
 
     def _check_wifi(self) -> bool:
@@ -418,6 +422,11 @@ class ExhibitApp(tk.Tk):
 
     def _on_show_ended(self):
         self._log("── Show ended — resetting to ready state ──")
+        # Ensure audio pause file is gone so the audio loop resumes
+        try:
+            os.unlink(AUDIO_PAUSE_FILE)
+        except OSError:
+            pass
         future = asyncio.run_coroutine_threadsafe(self._apply_ready_state(), self._async_loop)
         threading.Thread(target=self._wait_reset, args=(future,), daemon=True).start()
 
@@ -505,12 +514,30 @@ class ExhibitApp(tk.Tk):
             self._log("Button pressed — cancelling show")
             self._on_cancel()
 
+    # ── Audio ─────────────────────────────────────────────────────────────────
+
+    def _start_audio(self):
+        if self._audio_proc is not None and self._audio_proc.poll() is None:
+            return  # already running
+        script = os.path.join(os.path.dirname(os.path.abspath(__file__)), "main.py")
+        audio = os.path.join(os.path.dirname(os.path.abspath(__file__)), AUDIO_FILE)
+        if not os.path.exists(audio):
+            self._log(f"Audio file '{AUDIO_FILE}' not found — skipping background audio")
+            return
+        self._audio_proc = subprocess.Popen([sys.executable, script, "audio", audio])
+        self._log(f"Background audio started ({AUDIO_FILE})")
+
     # ── Shutdown ──────────────────────────────────────────────────────────────
 
     def _on_close(self):
         self._app_shutdown.set()
-        if self._show_proc is not None and self._show_proc.poll() is None:
-            self._show_proc.terminate()
+        for proc in (self._show_proc, self._audio_proc):
+            if proc is not None and proc.poll() is None:
+                proc.terminate()
+        try:
+            os.unlink(AUDIO_PAUSE_FILE)
+        except OSError:
+            pass
         self._async_loop.call_soon_threadsafe(self._async_loop.stop)
         self.destroy()
 
