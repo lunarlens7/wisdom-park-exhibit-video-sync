@@ -23,7 +23,7 @@ Even with Build Tools installed, a regular PowerShell or Command Prompt window m
 
 1. Download the installer from https://visualstudio.microsoft.com/visual-cpp-build-tools/
 2. Select **Desktop development with C++** and complete the installation
-3. Restart your terminal, then retry Option 2 above
+3. Restart your terminal, then retry Option 1 above
 
 ## Setup
 
@@ -71,8 +71,6 @@ devices:
     initial_state:
       on: true
       brightness: 100
-      hue: 30
-      saturation: 80
 
   stage_switch:
     type: p100
@@ -82,23 +80,64 @@ devices:
 
 cues:
   - at: 5
-    device: main_light
+    devices: [main_light]
     action: fade
     to_brightness: 20
-    to_hue: 200
-    to_saturation: 100
     duration: 5.0
 
   - at: 10
-    device: stage_switch
+    devices: [stage_switch]
     action: "on"
 ```
 
 The `monitor` index follows the OS display order (0 = primary, 1 = secondary, etc.). If you only have one screen, remove the second entry under `screens`.
 
-If you don't know your device IPs, use the discover command (below).
+If you don't know your device IPs, use the discover command (below), or run the GUI and click **Verify System** — it discovers devices and updates the config automatically.
 
-## Usage
+## GUI (Windows)
+
+`gui.py` is the primary interface for exhibit operation. It guides staff through setup verification before allowing the show to run.
+
+```bash
+python gui.py        # Windows
+python3 gui.py       # macOS
+```
+
+**Verification checks (click Verify System):**
+- Connected to the Exhibition WiFi (192.168.8.x subnet)
+- All 6 Tapo devices found on the network
+- Device IP addresses match `config.yaml` — mismatches are corrected automatically
+
+After verification passes, the ready state is applied to all devices (overheads dim, spotlights at 50%, stage switch on).
+
+**Buttons:**
+| Button | Available when | Action |
+|---|---|---|
+| Verify System | Always | Runs setup checks and applies ready state |
+| Start Program | Verified | Starts the show |
+| Shut Down Lights | Verified | Turns off all devices |
+| Cancel Show & Reset | Running | Stops the show and returns to verified state |
+
+**Arduino button** (requires `hotkey.py` running — see below):
+- Press while verified → starts the show
+- Press while running → cancels the show and returns to verified state
+- Press while unverified → does nothing
+
+## Arduino button integration
+
+`hotkey.py` listens on the Arduino serial port (COM4) and signals the GUI when the button is pressed. Run it in a separate terminal alongside `gui.py`:
+
+```bash
+python hotkey.py
+```
+
+When the Arduino sends `TRIGGER_KEYS`, `hotkey.py` writes a `.trigger` file that the GUI picks up within 200 ms. The GUI enforces the state checks — the button has no effect until verification has passed.
+
+To change the COM port, edit `ARDUINO_PORT` at the top of `hotkey.py`.
+
+## CLI usage
+
+The show can also be run directly from the command line without the GUI:
 
 ```bash
 # Start the show (videos open automatically)
@@ -121,8 +160,6 @@ python main.py discover
 python main.py run /path/to/other-config.yaml
 ```
 
-Press `q` in any video window to quit.
-
 ## Cue types
 
 | Action | Device | Description |
@@ -134,6 +171,16 @@ Press `q` in any video window to quit.
 
 Cue timings are driven by the first screen's video position. Quote `"on"` and `"off"` in the YAML to prevent them being parsed as booleans.
 
+## Building a Windows executable
+
+Run `build_windows.bat` on the Windows machine to produce `dist\ExhibitController.exe`:
+
+```bat
+build_windows.bat
+```
+
+The `config.yaml` and `.env` files must sit next to the executable at runtime — copy them alongside the `.exe` after building.
+
 ## Running tests
 
 ```bash
@@ -143,4 +190,4 @@ python3 -m pytest tests/ -v     # macOS
 
 ## Moving to a new network
 
-Run `python main.py discover` to find new device IPs, then update `config.yaml`.
+Run `python main.py discover` to find new device IPs and update `config.yaml`, or open the GUI and click **Verify System** — it detects IP changes and updates the config automatically.

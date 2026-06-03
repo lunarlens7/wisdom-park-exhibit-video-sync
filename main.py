@@ -1,5 +1,6 @@
 import asyncio
 import sys
+import threading
 import numpy as np
 import cv2
 import os
@@ -8,13 +9,9 @@ from config import load_config, ConfigError, ScreenConfig, AppConfig
 from cue_engine import CueEngine
 from device_controller import DeviceController
 from discovery import discover_devices, print_devices
-import keyboard
 
 CONFIG_PATH = "config.yaml"
 AUDIO_PAUSE_FILE = ".audio_pause"
-
-pressed = []
-keyboard.on_press(lambda e: pressed.append(e.name))
 
 
 def _frame_to_bgr(img) -> np.ndarray:
@@ -155,7 +152,7 @@ async def _run_secondary(
 #     return msvcrt.kbhit()
 
 
-async def run_show(config_path: str, seek: float = 0.0, preview: float = 0.0) -> None:
+async def run_show(config_path: str, seek: float = 0.0, preview: float = 0.0, stop_event: threading.Event | None = None) -> None:
     open(AUDIO_PAUSE_FILE, "w").close()
     try:
         cfg = load_config(config_path)
@@ -193,7 +190,7 @@ async def run_show(config_path: str, seek: float = 0.0, preview: float = 0.0) ->
     for screen in cfg.video.screens[1:]:
         asyncio.create_task(_run_secondary(screen, cfg.video.loop, cfg.video.fullscreen, seek=seek, reset_event=reset_event, pause_event=pause_event, primary_pts=primary_pts))
 
-    print(f"Playing {len(cfg.video.screens)} screen(s). Press 'q' to quit.")
+    print(f"Playing {len(cfg.video.screens)} screen(s).")
 
     seek_pending = seek > 0
     pause_pending = preview > 0
@@ -205,9 +202,7 @@ async def run_show(config_path: str, seek: float = 0.0, preview: float = 0.0) ->
         while True:
             frame, val = player.get_frame()
 
-            if pressed:
-                print(pressed)
-                print("A key was pressed, shutting program down.")
+            if stop_event is not None and stop_event.is_set():
                 break
 
             if val == "eof":

@@ -1,103 +1,99 @@
-dry_run: false  # set to true to play videos without triggering any device cues
-
-video:
-  loop: true
-  fullscreen: true
-  screens:
-    - path: "Full_Day_Sequence_B.mp4"
-      window_title: "Screen 1"
-      monitor: 1 #TV
-      mute: true
-    - path: "Full_Day_Sequence_A.mp4"
-      window_title: "Screen 2"
-      monitor: 2 #projector
-      mute: false
-
-devices:
-  main_light:
-    type: l530
-    ip: "192.168.8.104"
-    initial_state:
-      on: true
-      brightness: 1
-
-  overhead_light_2:
-    type: l530
-    ip: "192.168.8.103"
-    initial_state:
-      on: true
-      brightness: 1
-
-  spotlight_1:
-    type: l630
-    ip: "192.168.8.100"
-    initial_state:
-      on: false
-      brightness: 1
-
-  spotlight_2:
-    type: l630
-    ip: "192.168.8.101"
-    initial_state:
-      on: false
-      brightness: 1
-
-  spotlight_3:
-    type: l630
-    ip: "192.168.8.102"
-    initial_state:
-      on: false
-      brightness: 1
-
-  stage_switch:
-    type: p100
-    ip: "192.168.8.106"
-    initial_state:
-      on: true
-
 cues:
-  # 0-15s: overheads fade to full, spotlights fade on to 70%
-  - at: 3
-    devices: [main_light, overhead_light_2]
-    action: fade
+  - action: fade
+    at: 3
+    devices:
+      - main_light
+      - overhead_light_2
     duration: 10
     to_brightness: 100
-
-  - at: 3
-    devices: [spotlight_1, spotlight_2, spotlight_3]
-    action: fade
+  - action: fade
+    at: 3
+    devices:
+      - spotlight_1
+      - spotlight_2
+      - spotlight_3
     duration: 10
     to_brightness: 70
-
-  # miniature lights switch off at 15s
-  - at: 10
-    devices: [stage_switch]
-    action: "off"
-
-  # 4:02 — fade overheads and spotlights to near-off over 10s
-  - at: 240
-    devices: [main_light, overhead_light_2]
-    action: fade
+  - action: "off"
+    at: 10
+    devices:
+      - stage_switch
+  - action: fade
+    at: 98
+    devices:
+      - main_light
+      - overhead_light_2
     duration: 8
     to_brightness: 1
-
-  - at: 240
-    devices: [spotlight_1, spotlight_2, spotlight_3]
-    action: fade
+  - action: fade
+    at: 98
+    devices:
+      - spotlight_1
+      - spotlight_2
+      - spotlight_3
     duration: 8
     to_brightness: 1
-
-  # 4:07 — miniature lights switch on
-  - at: 247
-    devices: [stage_switch]
-    action: "on"
-
-  # 4:12 — spotlights off (2s buffer after fade ends at 4:10)
-  - at: 252
-    devices: [spotlight_1, spotlight_2, spotlight_3]
-    action: "off"
-
-  # 4:12 — overhead lights off (2s buffer after fade ends at 4:10)
-  - at: 252
-    devices: [main_light, overhead_light_2]
-    action: "off"
+  - action: "on"
+    at: 103
+    devices:
+      - stage_switch
+  - action: "off"
+    at: 108
+    devices:
+      - spotlight_1
+      - spotlight_2
+      - spotlight_3
+  - action: "off"
+    at: 108
+    devices:
+      - main_light
+      - overhead_light_2
+devices:
+  main_light:
+    initial_state:
+      true: true
+      brightness: 1
+    ip: 192.168.8.105
+    type: l530
+  overhead_light_2:
+    initial_state:
+      true: true
+      brightness: 1
+    ip: 192.168.8.104
+    type: l530
+  spotlight_1:
+    initial_state:
+      true: false
+      brightness: 1
+    ip: 192.168.8.103
+    type: l630
+  spotlight_2:
+    initial_state:
+      true: false
+      brightness: 1
+    ip: 192.168.8.101
+    type: l630
+  spotlight_3:
+    initial_state:
+      true: false
+      brightness: 1
+    ip: 192.168.8.100
+    type: l630
+  stage_switch:
+    initial_state:
+      true: true
+    ip: 192.168.8.102
+    type: p100
+dry_run: false
+video:
+  fullscreen: true
+  loop: true
+  screens:
+    - monitor: 1
+      mute: true
+      path: Full_Day_Sequence_B.mp4
+      window_title: Screen 1
+    - monitor: 2
+      mute: false
+      path: Full_Day_Sequence_A.mp4
+      window_title: Screen 2
